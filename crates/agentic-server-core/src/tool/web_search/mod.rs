@@ -2,12 +2,15 @@
 //!
 //! `mod.rs` owns the OpenAI-facing adapter: the [`WebSearchHandler`], the
 //! mapping to public `web_search_call` output items. [`provider`] defines the
-//! private provider contract and normalized result types. [`args`] parses the model's arguments; provider modules
-//! ([`you`], [`brave`]) shape requests and map responses.
+//! private provider contract, normalized result types, and the response helpers every provider shares. [`args`]
+//! parses the model's arguments; provider modules ([`you`], [`brave`], [`tavily`], [`searxng`]) shape requests and
+//! map responses.
 
 pub(crate) mod args;
 pub(crate) mod brave;
 mod provider;
+pub(crate) mod searxng;
+pub(crate) mod tavily;
 pub(crate) mod you;
 
 use std::collections::HashMap;
@@ -18,7 +21,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::{StreamExt, TryStreamExt};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::Semaphore;
 
@@ -26,14 +29,19 @@ use self::args::{MAX_WEB_SEARCH_QUERIES, WebSearchArguments};
 use self::brave::BraveSearchProvider;
 use self::provider::{
     ApiKey, WebSearchProvider, WebSearchProviderMetadata, WebSearchProviderResponse, WebSearchResult, clean_base_url,
+    null_as_default, read_response_limited,
 };
+use self::searxng::SearxngSearchProvider;
+use self::tavily::TavilySearchProvider;
 use self::you::{YOU_API_BASE_URL, YOU_API_KEY, YouSearchProvider};
 use super::handler::MAX_GATEWAY_TOOL_OUTPUT_BYTES;
 use super::handler::{GatewayExecutor, GatewayToolEventPlan, ToolError, ToolHandler, ToolOutput};
 use super::ownership::GatewayBinding;
 use super::registry::{ToolEntry, ToolType};
 use crate::config::{DEFAULT_MAX_CONCURRENT_GATEWAY_CALLS, WebSearchProviderConfig, WebSearchProviderKind};
-use crate::types::io::output::{FunctionToolCall, WebSearchCall, WebSearchCallStatus, WebSearchSource};
+use crate::types::io::output::{
+    FunctionToolCall, GatewayCallStatus, WebSearchCall, WebSearchCallStatus, WebSearchSource,
+};
 use crate::types::io::{FunctionTool, OutputItem};
 use crate::types::tools::WebSearchToolParam;
 
@@ -227,6 +235,25 @@ impl WebSearchHandler {
                     .or(WebSearchProviderKind::Brave.default_max_concurrent_queries())
                     .unwrap_or(max_concurrent_gateway_calls),
             )),
+            WebSearchProviderKind::Tavily => Arc::new(TavilySearchProvider::from_values(
+                client,
+                config.api_key.clone(),
+                config.base_url.clone(),
+                config
+                    .max_concurrent_queries
+                    .or(WebSearchProviderKind::Tavily.default_max_concurrent_queries())
+                    .unwrap_or(max_concurrent_gateway_calls),
+            )),
+            // SearXNG deliberately does not take `client`: it builds its own
+            // client with redirects disabled (see `redirect_free_client`).
+            WebSearchProviderKind::Searxng => Arc::new(SearxngSearchProvider::from_values(
+                config.api_key.clone(),
+                config.base_url.clone(),
+                config
+                    .max_concurrent_queries
+                    .or(WebSearchProviderKind::Searxng.default_max_concurrent_queries())
+                    .unwrap_or(max_concurrent_gateway_calls),
+            )),
         };
         let effective = effective_query_concurrency(provider.as_ref(), requested);
         Self::with_provider_and_query_concurrency(provider, effective)
@@ -328,10 +355,7 @@ impl WebSearchHandler {
             )));
         }
 
-        Ok(ToolOutput {
-            call_id: call_id.to_owned(),
-            output,
-        })
+        Ok(ToolOutput::success(call_id, output))
     }
 }
 
@@ -355,38 +379,6 @@ struct WebSearchToolOutput<'a> {
     queries: &'a [String],
     results: WebSearchResultSections,
     metadata: Vec<WebSearchProviderMetadata>,
-}
-
-/// Deserializes an explicit JSON `null` as the field's default instead of
-/// failing, so a degenerate provider response cannot fail the whole search.
-pub(crate) fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Default + Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer).map(Option::unwrap_or_default)
-}
-
-/// Reads a provider HTTP response body, failing as soon as it exceeds
-/// [`MAX_GATEWAY_TOOL_OUTPUT_BYTES`] so an oversized provider reply is never
-/// buffered in full. Every provider module reads its responses through here.
-pub(super) async fn read_response_limited(
-    resp: reqwest::Response,
-    provider: WebSearchProviderKind,
-) -> Result<String, ToolError> {
-    let mut stream = resp.bytes_stream();
-    let mut body = Vec::new();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk
-            .map_err(|error| ToolError::Execution(format!("failed to read {provider} search response: {error}")))?;
-        if chunk.len() > MAX_GATEWAY_TOOL_OUTPUT_BYTES.saturating_sub(body.len()) {
-            return Err(ToolError::Execution(format!(
-                "{provider} search response exceeded {MAX_GATEWAY_TOOL_OUTPUT_BYTES} bytes"
-            )));
-        }
-        body.extend_from_slice(&chunk);
-    }
-    String::from_utf8(body).map_err(|_| ToolError::Execution(format!("{provider} search response was not valid UTF-8")))
 }
 
 impl ToolHandler for WebSearchHandler {
@@ -441,10 +433,10 @@ impl GatewayExecutor for WebSearchHandler {
         &self,
         call: &FunctionToolCall,
         output: &ToolOutput,
-        status: WebSearchCallStatus,
+        status: GatewayCallStatus,
         _params: &WebSearchToolParam,
     ) -> Option<OutputItem> {
-        output_item(call, output, status)
+        output_item(call, output, status.into())
     }
 }
 
@@ -804,8 +796,18 @@ mod tests {
         assert_eq!(handler.max_concurrent_queries.get(), 1);
         assert_eq!(handler.query_permits.available_permits(), 1);
         let raised = brave.with_max_concurrent_queries(NonZeroUsize::new(3));
-        let handler = WebSearchHandler::from_config(client, &raised, gateway_limit);
+        let handler = WebSearchHandler::from_config(Arc::clone(&client), &raised, gateway_limit);
         assert_eq!(handler.max_concurrent_queries.get(), 3);
+
+        // SearXNG is keyless and inherits the gateway limit unless the operator lowers it.
+        let searxng = WebSearchProviderConfig::new(None, Some("http://searxng:8080".to_owned()))
+            .with_provider(WebSearchProviderKind::Searxng);
+        let handler = WebSearchHandler::from_config(Arc::clone(&client), &searxng, gateway_limit);
+        assert!(format!("{handler:?}").contains("SearxngSearchProvider"));
+        assert_eq!(handler.max_concurrent_queries.get(), 5);
+        let lowered = searxng.with_max_concurrent_queries(NonZeroUsize::new(2));
+        let handler = WebSearchHandler::from_config(client, &lowered, gateway_limit);
+        assert_eq!(handler.max_concurrent_queries.get(), 2);
     }
 
     #[test]

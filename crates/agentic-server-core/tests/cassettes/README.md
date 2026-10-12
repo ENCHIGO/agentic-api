@@ -9,9 +9,14 @@
                          (cassette written here)
 ```
 
-The proxy intercepts each turn, records the request body and response, then appends a `t<N>` entry to the output YAML.
+The proxy intercepts requests and records their request bodies and responses.
+Each `t<N>` in a Conversation Items API cassette is one HTTP request in execution order,
+including conversation creation, Responses calls, and item operations. These cassettes
+use a single flat `turns` list.
 
-The recorder is interactive. For each turn it prompts you to type the input message and waits for you to press Enter before sending the request. You can run it directly in your terminal and type the prompts by hand, or pipe them in from a script using `printf` or `echo` to feed all turns non-interactively:
+For the interactive recorder modes, the script prompts for each input message. You can type
+prompts in a terminal or pipe them in with `printf` or `echo`. The `items` mode runs fixed
+scenarios without prompting:
 
 ```bash
 # interactive -- type each prompt when asked
@@ -64,6 +69,27 @@ model requested by Codex 0.149.1. It then runs `scripts/codex_image_smoke.py`, w
 run explicitly advertises text-only and requires the image to be absent. These cases replay the existing Qwen2.5-VL
 single-image SSE recording unchanged; they validate client/catalog propagation, not fresh model inference.
 
+## Messages web fetch cassettes
+
+`messages/messages-web-fetch-Qwen-Qwen3-8B-{nonstreaming,streaming}.yaml` record the upstream turns of a request that
+declared the native `web_fetch_20250910` tool, as the gateway rewrites it: `messages/web_fetch_tools.json` is the
+function tool the gateway sends upstream and `messages/web_fetch_tool_outputs.json` is the `web_fetch_result` the
+gateway produces for the page `tests/messages_web_fetch_cassette_test.rs` serves. The fed-back `tool_result` carries
+`is_error: false`, as the gateway loop's does. Recorded against vLLM-Metal serving Qwen3-8B (4-bit) as `qwen3` with
+`--enable-auto-tool-choice --tool-call-parser hermes` and thinking off:
+
+```bash
+printf 'Fetch http://127.0.0.1:18080/page/release-notes.html with web_fetch and reply with the verification token it contains, nothing else.\n' \
+  | python record_cassette.py --mode messages --turns 2 --no-stream --vllm http://127.0.0.1:5050 --model qwen3 \
+      --tools messages/web_fetch_tools.json --tool-outputs messages/web_fetch_tool_outputs.json \
+      --output messages/messages-web-fetch-Qwen-Qwen3-8B-nonstreaming.yaml
+```
+
+The streaming cassette is the same command with `--stream`. The replay binds an ephemeral port, serves the recorded
+responses with the origin re-based onto it (the streaming `tool_use` input is re-emitted as one `input_json_delta`,
+since the recorded chunks split the URL), and compares the loop's complete upstream requests with the recording,
+normalizing only the origin and `retrieved_at`.
+
 ## Modes
 
 | Mode | Description |
@@ -71,6 +97,7 @@ single-image SSE recording unchanged; they validate client/catalog propagation, 
 | `responses` | Chains turns via `previous_response_id`. Supported with `--vllm`. Common mode for gateway-backed built-in tool cassettes. |
 | `messages` | Anthropic Messages API (`/v1/messages`). Stateless: resends the full `messages` history each turn. With `--tool-outputs`, a turn following a `tool_use` feeds back matching `tool_result` blocks (keyed by tool name) instead of prompting. Supported with `--vllm`. |
 | `conv` | Creates a conversation object, passes `conversation` id each turn. |
+| `items` | Scripted Conversation Items API continuation, deletion, response-branch, and pagination scenarios. `--turns` is 5, 6 for `branch`, 10 for `pagination`, or 19 for `edge-cases`; each numbered step is one HTTP request. |
 | `isolation` | Two independent conversations (A and B) recorded into one cassette. |
 | `mixed` | Turn 1 uses `conversation` id, turns 2+ switch to `previous_response_id`. |
 | `store_true_then_store_false` | Turn 1: `store=true` with conversation id. Remaining turns: `store=false`, still pass conversation id. |
@@ -80,7 +107,7 @@ single-image SSE recording unchanged; they validate client/catalog propagation, 
 ```
 --turns N              Number of turns
 --output PATH          Output YAML path
---mode MODE            responses | messages | conv | isolation | mixed | store_true_then_store_false  (default: conv)
+--mode MODE            responses | messages | conv | items | isolation | mixed | store_true_then_store_false  (default: conv)
 --stream / --no-stream Streaming or non-streaming (default: streaming)
 --transport TRANSPORT  http | websocket  (default: http; WebSocket requires responses mode)
 --model NAME           Model name sent in requests
@@ -103,6 +130,8 @@ single-image SSE recording unchanged; they validate client/catalog propagation, 
 --reasoning JSON       JSON object containing Responses reasoning settings
 --input-file FILE       JSON string or item array for turn 1 of an HTTP Responses recording; later turns are prompted
 --max-output-tokens N  max_output_tokens for Responses requests (default 1024; use 0 to omit)
+--max-tool-calls JSON  max_tool_calls per linear Responses turn: an integer for every turn, or an array where null
+                       omits the field on that turn (e.g. '[1, null]')
 --proxy-port PORT      Local proxy port (default 7070)
 --branch-from TURN     Branch from this turn's response id (repeatable)
 --branch-turn-number N First turn number for the corresponding branch (repeatable)
@@ -205,11 +234,22 @@ turns:
     - "data: {...}\n"
 ```
 
+## Persistent multi-agent WebSocket sessions
+
+The multi-agent recorder supports a persistent duplex capture with
+`MULTI_AGENT_TRANSPORT=websocket`. It reuses the HTTP suite's exact prompts and
+tool fixtures, records actual frames in both directions, injects client outputs
+while reading response events, and retains handshake/close/failure evidence.
+See [the multi-agent recording commands and session format](multi_agent/README.md#persistent-websocket-recordings).
+These files use `sessions`, not the HTTP `turns` schema or synthesized SSE.
+
 ## Recorder scripts
 
 | Script | Cassettes | Backend |
 |--------|-----------|---------|
+| `record_multi_agent_cassettes.sh` | Five delegated scenarios over HTTP JSON/SSE or persistent duplex WebSocket | OpenAI and gateway |
 | `record_text_only_cassettes.sh` | 10 text-only cassettes (responses + conv modes, streaming + non-streaming) | OpenAI (`OPENAI_API_KEY`) |
+| `record_conversations_api_cassettes.sh` | 18 Conversation Items API cassettes: four history scenarios in both transports and one non-streaming edge-case sequence, each for both providers | OpenAI and gateway |
 | `record_reasoning_cassettes.sh` | Matching explicit-reasoning cassettes (streaming + non-streaming) | gateway and OpenAI reference; optional direct vLLM |
 | `record_tool_call_cassettes.sh` | 8 tool-call cassettes (4 tool_choice modes x streaming + non-streaming) | vLLM |
 | `record_codex_cli_tool_call_cassettes.sh` | Codex function/namespace/custom-tool matrix | gateway, vLLM, and OpenAI |
@@ -217,6 +257,8 @@ turns:
 | `record_shell_cassettes.sh` | Four two-turn local-shell scenarios (streaming + non-streaming) | gateway and OpenAI reference |
 | `record_mcp_cassettes.sh` | Native MCP counter tool discovery and calls (streaming + non-streaming) | gateway and OpenAI reference |
 | `record_web_search_cassettes.sh` | Matching web-search calls (streaming + non-streaming) | gateway and OpenAI reference |
+| `record_max_tool_calls_cassettes.sh` | `max_tool_calls` validation, per-tool exhaustion, call counting, and WebSocket scenarios | gateway and OpenAI reference |
+| `record_code_interpreter_cassettes.sh` | One code-interpreter calculation; OpenAI blocking/SSE and gateway blocking/SSE/WebSocket | gateway and OpenAI reference |
 | `record_messages_tool_choice.py` | Forced `any` and named Messages searches followed by an automatic answer (JSON + SSE) | gateway's upstream traffic to vLLM |
 | `record_image_input_cassettes.sh` | Matching two-turn image-input conversations (streaming + non-streaming) | gateway and OpenAI reference |
 | `record_dynamo_cassettes.sh` | Stateful two-turn and client-executed function tool call cassettes (streaming + non-streaming) | NVIDIA Dynamo frontend |
@@ -396,6 +438,53 @@ GATEWAY_MODEL=Qwen/Qwen3.6-35B-A3B-FP8 \
 bash crates/agentic-server-core/tests/cassettes/record_tool_search_cassettes.sh
 ```
 
+### Code interpreter (OpenAI reference and gateway)
+
+The recorder captures one deterministic calculation in exactly five profiles: OpenAI blocking and HTTP/SSE as the
+wire-contract reference, plus gateway blocking, HTTP/SSE, and Responses WebSocket. Both providers receive the
+`{"type":"code_interpreter","container":{"type":"auto"}}` declaration. The gateway executes generated Python in its
+local Eryx sandbox. The captured requests and responses verify the public declaration and lifecycle across all five
+profiles.
+
+The characterization test requires the OpenAI event names and lifecycle order, folds provider-dependent code-delta
+chunking, checks stable item IDs and output indexes, and rejects events after `response.output_item.done`. It also
+checks blocking/streaming transport parity and that the WebSocket messages exactly match the recorder's synthesized
+SSE. OpenAI currently returns `outputs: null` for the completed call; the gateway intentionally returns its local
+`logs` output containing `CODE_INTERPRETER_OK=385`.
+
+Start an embedded-code-interpreter gateway with a fresh database and the Eryx runtime artifact inside a delegated
+Linux cgroup v2 scope, then record the full matrix. This local recipe requires a running systemd user manager. Every
+selected recording is staged, checked for unmasked authorization data, and semantically validated before it replaces
+a checked-in cassette.
+
+```bash
+install -d -m 700 /tmp/agentic-api-code-interpreter
+
+systemd-run --user --scope --quiet --property=Delegate=yes \
+  bash scripts/tests/with-code-interpreter-cgroup.sh \
+  env ERYX_RUNTIME_CWASM=/path/to/runtime.cwasm \
+    TMPDIR=/tmp/agentic-api-code-interpreter \
+    AGENTIC_CODE_INTERPRETER_ENABLED=true \
+    DATABASE_URL=sqlite:///tmp/agentic_api_code_interpreter_matrix.db \
+    cargo run -p agentic-server --features embedded-code-interpreter -- \
+      --gateway-host 127.0.0.1 \
+      --gateway-port 3098 \
+      --llm-api-base http://127.0.0.1:8000 \
+      --skip-llm-ready-check
+```
+
+```bash
+OPENAI_API_KEY=sk-... \
+CODE_INTERPRETER_RECORD_SET=all \
+OPENAI_MODEL=gpt-5.6 \
+GATEWAY_URL=http://127.0.0.1:3098 \
+GATEWAY_MODEL=Qwen/Qwen3.6-35B-A3B \
+bash crates/agentic-server-core/tests/cassettes/record_code_interpreter_cassettes.sh
+```
+
+Use `CODE_INTERPRETER_RECORD_SET=openai-reference`, `gateway-nonstreaming`, `gateway-streaming`,
+`gateway-websocket`, or `gateway` to refresh only that part of an existing five-profile matrix.
+
 ### Web search (gateway and OpenAI)
 
 The default records both providers. Use `WEB_SEARCH_RECORD_SET=gateway` or
@@ -405,6 +494,28 @@ The default records both providers. Use `WEB_SEARCH_RECORD_SET=gateway` or
 OPENAI_API_KEY=sk-... \
 bash crates/agentic-server-core/tests/cassettes/record_web_search_cassettes.sh
 ```
+
+### `max_tool_calls` (OpenAI reference and gateway)
+
+The recorder captures four groups per provider for [#398](https://github.com/vllm-project/agentic-api/issues/398):
+`validation` (JSON only; every accepted and rejected value), `builtin` and `counting` (JSON and SSE; web search,
+code interpreter, and MCP exhaustion, client-executed calls, and continuations), and `websocket`. Each leg is an
+independent conversation appended with `--append`; the script header lists the legs and what each isolates. The
+gateway recordings show the gateway enforcing the limit against a local You.com-compatible search stub
+(`YOU_API_BASE_URL`), so their search results are synthetic.
+
+```bash
+OPENAI_API_KEY=sk-... \
+bash crates/agentic-server-core/tests/cassettes/record_max_tool_calls_cassettes.sh
+
+MAX_TOOL_CALLS_RECORD_SET=gateway GATEWAY_URL=http://localhost:9000 GATEWAY_MODEL=Qwen/Qwen3.6-35B-A3B \
+MAX_OUTPUT_TOKENS=16384 MAX_TOOL_CALLS_SKIP_LEGS="mixed-builtin mcp-failure mcp-then-search" \
+bash crates/agentic-server-core/tests/cassettes/record_max_tool_calls_cassettes.sh
+```
+
+`MAX_TOOL_CALLS_RECORD_SET` selects `openai` (default), `gateway`, or `all`; `MAX_TOOL_CALLS_GROUPS` selects
+groups; `MAX_TOOL_CALLS_SKIP_LEGS` omits legs a provider cannot run. The gateway `code-interpreter` legs need the
+embedded-code-interpreter gateway described above.
 
 ### Image input (gateway → vLLM vision model, and OpenAI)
 
@@ -514,6 +625,88 @@ OPENAI_API_KEY=sk-... \
 OPENAI_CUSTOM_MODEL=gpt-5.6 \
 bash tests/cassettes/record_codex_cli_tool_call_cassettes.sh openai-custom
 ```
+
+### Conversation Items API (OpenAI and gateway)
+
+`record_conversations_api_cassettes.sh` uses the shared `record_cassette.py` proxy to record
+four history scenarios against each provider, with streaming and non-streaming Responses calls,
+plus one non-streaming item API edge-case sequence. Each
+`filename: tN` is one HTTP request in a flat `turns` list; there is no `setup` or
+`after_turn` section. The recorder writes the captured YAML directly.
+
+The four history scenarios start with t1 `POST /v1/conversations`, t2 `POST /v1/responses`
+using the conversation ID to remember SAPPHIRE, and t3
+`POST /v1/conversations/{conversation_id}/items` to add ORCHID.
+
+| Scenario | Remaining requests and expected history |
+|----------|-----------------------------------------|
+| `continuation` | t4 continues through the conversation ID and answers ORCHID; t5 lists the conversation items, including that response. |
+| `deletion` | t4 deletes the ORCHID item; t5 lists the conversation items without it. |
+| `branch` | t4 branches through `previous_response_id` alone and answers SAPPHIRE; t5 adds VIOLET through the conversation items path; t6 lists the conversation items. The branch response does not appear in that list. The Responses call never combines `conversation` with `previous_response_id`. |
+| `pagination` | t4 lists all items ascending; t5–t6 list ascending pages of size two, with t6 using t5's `last_id` as `after`. t7 lists all items descending; t8–t9 repeat the cursor check in descending order. t10 lists ascending with `include[]=message.output_text.logprobs`. |
+| `edge-cases` | One YAML: t1–t3 try a message with client-supplied `item_wrongprefix_…` and list; t4–t6 try a function call with `msg_wrongprefix_…` and valid `call_id`, then list; t7–t11 add three valid messages, list two, delete the page cursor, and list with the deleted ID as `after`. t12–t14 copy one surviving generated ID into a fresh conversation as a control; t15–t17 submit that ID twice with different content into another fresh conversation; t18–t19 reuse it in its original conversation. Each insertion probe is followed by a list to capture actual state. Probe responses are recorded without assuming a status. |
+
+Run from the repository root with `OPENAI_API_KEY` set and the gateway, its database,
+and vLLM running. Set `GATEWAY_MODEL` if the gateway model differs from
+`OPENAI_MODEL` (default `gpt-4.1`); `PYTHON_BIN` selects the Python environment
+with the packages in `recorder-requirements.txt`.
+
+```bash
+bash crates/agentic-server-core/tests/cassettes/record_conversations_api_cassettes.sh
+
+# Re-record only the pagination pair, for both providers and both transports.
+CONVERSATIONS_SCENARIO=pagination bash crates/agentic-server-core/tests/cassettes/record_conversations_api_cassettes.sh
+CONVERSATIONS_SCENARIO=pagination-stream bash crates/agentic-server-core/tests/cassettes/record_conversations_api_cassettes.sh
+
+# Record all gateway scenarios, including the combined edge-case YAML.
+CONVERSATIONS_RECORD_SET=gateway bash crates/agentic-server-core/tests/cassettes/record_conversations_api_cassettes.sh
+```
+
+`CONVERSATIONS_RECORD_SET=openai` or `gateway` selects one provider;
+`CONVERSATIONS_SCENARIO=edge-cases` records the complete nineteen-request edge-case sequence into one YAML per provider.
+Only the four history scenarios
+have `-stream` variants. The prefix probes send explicit wrong-prefix IDs, whereas
+normal item creation lets the provider assign IDs. The edge-case status codes
+are learned from the OpenAI recording, then compared with the gateway recording.
+The existing Rust history comparison requires both recordings for its four history scenarios.
+The edge-case assertions cover the nineteen-step recordings from both providers. The new OpenAI recording establishes that:
+
+- Reusing a generated item ID in another conversation returns 200 and retains the original item's content, ignoring the submitted replacement content.
+- Supplying that ID twice in one request to a fresh conversation returns 200 and lists two occurrences with the same public ID and original content.
+- Reusing it in its original conversation returns 400 with `type: invalid_request_error`, `code: item_already_in_conversation`, `param: items`, and message `Item already in conversation`; the original history stays unchanged.
+
+The latest gateway recording matches all nineteen OpenAI steps: status codes, full response bodies,
+item ordering, and ID relationships, with dynamic IDs and timestamps normalized. Deleted-cursor
+pagination returns 404 with `type: invalid_request_error`, `param: after`, null `code`, and
+`No item found with id '<deleted_id>'`. The message and function-call prefix probes return 400
+with `code: invalid_value`, `param: items[0].id`, and the recorded expected-prefix message.
+
+The tests compare every recorded edge-case response without skipping the previously failing
+steps. They also replay all nineteen OpenAI requests against gateway handlers backed by a fresh
+SQLite database. Storage regressions separately exercise repeated references across SQL batches,
+rejection in later requests, rollback, tenant isolation, and preserved response snapshots.
+The storage model keeps each history occurrence's internal primary key separate from the reused
+public item ID; uniqueness of `(conversation_id, public_item_id)` would reject the accepted t16 case.
+
+These probes concern existing generated IDs. They do not establish OpenAI behavior for duplicate
+invented IDs, pagination/deletion among repeated occurrences, or every item type's prefix.
+Those cases require additional recordings before claiming parity.
+
+Run the recording assertions with:
+
+```bash
+REQUIRE_CONVERSATIONS_CASSETTES=1 cargo test -p agentic-server-core --test conversations_api_cassette_test
+```
+
+The assertions check successful statuses, request routes and ID relationships,
+secret-word answers, conversation history visibility, and the SSE event lifecycle.
+They compare each provider's ascending and descending pages with its own full
+ordered item list, including cursor, `first_id`, `last_id`, and `has_more`.
+Gateway reasoning items can add raw items and shift page boundaries, so the
+test does not require OpenAI and gateway pages to contain the same raw items.
+The `include` request is checked for success and unchanged item order and
+message shape; this text-only scenario does not exercise other `include`
+expansions or every Conversation Items API format.
 
 ### Compaction replay (OpenAI)
 

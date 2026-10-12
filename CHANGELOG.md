@@ -4,6 +4,121 @@ All notable changes to Agentic API are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Accepted the later versions of Claude's native server tools on `/v1/messages` and `/v1/messages/count_tokens`:
+  `web_search_20260209` and `web_search_20260318`, and `web_fetch_20260209`, `web_fetch_20260309`, and
+  `web_fetch_20260318` (#419). These versions add dynamic filtering, which calls the tool from Anthropic's code
+  execution by default; the gateway does not run code execution, so a declaration whose `allowed_callers` includes
+  `"direct"` runs exactly as the basic version, and one without it is rejected with HTTP 400 that names
+  `allowed_callers` and the reason, as Anthropic's API answers for models without programmatic tool calling.
+  `use_cache` (`web_fetch_20260309` and later) is honoured because the built-in fetcher keeps no cache of fetched
+  pages, and `response_inclusion` (the `_20260318` versions) is accepted because it only affects results that code
+  execution consumed; either setting on a version that does not define it is rejected with HTTP 400, as is a version
+  the gateway does not list. In `agentic_core::types::messages::tool_seam`, `NATIVE_WEB_SEARCH_VERSIONS` and
+  `NATIVE_WEB_FETCH_VERSIONS` list the versions as `NativeToolVersion` entries recording what each defines, and
+  `NativeToolVersion::find` looks a declared type up.
+- Added SearXNG as a selectable backend for the gateway-owned `web_search` tool (#326, part of #291). Select it
+  with `AGENTIC_WEB_SEARCH_PROVIDER=searxng` or `[web_search] provider = "searxng"` and point
+  `AGENTIC_WEB_SEARCH_BASE_URL` or `[web_search] base_url` at a self-hosted instance; the endpoint is mandatory
+  (an absolute `http(s)` URL without a query or fragment, sub-path mounts allowed) and the server refuses to start
+  without it. No API key is needed; `SEARXNG_API_KEY` (or the variable named by `api_key_env`) is sent as a `Bearer`
+  token only when set. Web and news results come from one `format=json&categories=general,news` request per query,
+  split by category. The gateway adapts the shared tool contract: `allowed_domains` / `blocked_domains` and the
+  model's `include_domains` / `exclude_domains` are enforced client-side on a label boundary, `count` is applied
+  client-side after filtering, `freshness` maps to `time_range` (date ranges are ignored), `language` is normalized
+  to SearXNG's `xx` / `xx-YY` form, `safesearch` maps to `0` / `1` / `2`, and `country` plus the You.com-specific
+  arguments are ignored. A `403` is reported as the JSON format being disabled, and a `429` explains SearXNG's
+  bot-detection limiter, which rejects the gateway's `Accept-Encoding`-free requests unless its address is on
+  `pass_ip`; neither is retried. The SearXNG provider uses a dedicated client with redirects disabled: a "bang"
+  query (`!!g`, `!ddg`, ...) makes SearXNG redirect to the named external engine before it looks at `format=json`,
+  and the gateway reports that 3xx as a failed `web_search_call` rather than following it out of the configured
+  instance. Each SearXNG `metadata[]` entry carries `"provider": "searxng"`. Concurrency inherits
+  `max_concurrent_gateway_calls`.
+- Added Claude's native `web_fetch_20250910` server tool as a gateway-executed tool on `/v1/messages` and
+  `/v1/messages/count_tokens` (#408). The declaration is rewritten into an ordinary `web_fetch` function tool for the
+  upstream, the gateway fetches the page the model names and feeds the text back as a hidden `tool_result`, and the
+  call never reaches the client, like native web search. `max_uses` is a request-wide budget of fetches charged for
+  every admitted call, `allowed_domains` / `blocked_domains` match on the host and apply to every redirect hop, and
+  `max_content_tokens` cuts the text at an approximate four bytes per token below the 1 MiB tool output cap. Only a
+  URL that already appeared in a user message or a tool result can be fetched; non-public addresses (loopback,
+  private, link-local, cloud metadata, carrier-grade NAT) are refused directly, through DNS, and through redirects,
+  with connections pinned to the checked addresses and made directly, without environment proxies, under the default
+  policy; every fetch is bounded in time, size, and redirects, and at most `max_concurrent_gateway_calls` fetches run
+  at once. Failures reach the model as the documented
+  `web_fetch_tool_result_error` codes. `citations` enabled is rejected with HTTP 400; a plain function named
+  `web_fetch` stays client-owned. Operators tune or disable the fetcher with `[web_fetch]` in
+  `config.toml` or `AGENTIC_WEB_FETCH_ENABLED`, `AGENTIC_WEB_FETCH_ALLOW_PRIVATE_NETWORKS`,
+  `AGENTIC_WEB_FETCH_MAX_RESPONSE_BYTES`, and `AGENTIC_WEB_FETCH_TIMEOUT_SECS`.
+
+### Changed
+
+- `agentic_core`: `NATIVE_WEB_SEARCH_TYPE` and `NATIVE_WEB_FETCH_TYPE` still name the basic versions, which are no
+  longer the only versions the Messages gateway executes; code that compares a declared type with them should look it
+  up with `NativeToolVersion::find` in `NATIVE_WEB_SEARCH_VERSIONS` or `NATIVE_WEB_FETCH_VERSIONS` (#419). On
+  `/v1/messages` and `/v1/messages/count_tokens`, a `web_search` declaration that sets `use_cache`, which no web
+  search version defines, or `response_inclusion` before `web_search_20260318` is rejected with HTTP 400 instead of
+  being ignored; a basic version whose `allowed_callers` omits `"direct"` is refused in the message shape every
+  version uses, which names the type, `allowed_callers`, and the reason; and the refusal of an unlisted `web_search_*`
+  version now lists the supported versions.
+- The domain lists of `web_search` and `web_fetch` declarations are one shared type, `DomainFilters` (formerly
+  `WebSearchFilters`, the same two fields), matched by one shared policy module that also validates a `web_fetch`
+  entry as a host name (`web_search` keeps its non-empty-entry rule in the Messages adapter); the request and
+  response wire shapes are unchanged, and the OpenAPI component is named `DomainFilters`.
+- `agentic_core`: `ToolOutput` carries an explicit success/failure status set by the handler, which the Messages
+  loop reports as `is_error`; the request-scoped tool registry and the declaration helpers take one concrete
+  `ToolDeclaration`, which each API converts to at its adapter boundary (`responses_declarations` for the Responses
+  wire tools, `registry_tools` for Messages), so `ResponsesTool` is a pure wire enum without the Messages-only
+  `web_fetch` variant and without declaration behaviour; discovered MCP tools reach a Responses request through
+  `record_discovered_mcp_tools`.
+- `WebSearchProviderKind` gains a `Searxng` variant (`"searxng"`) with no default endpoint, `SEARXNG_API_KEY` as its
+  conventional key variable, and no provider concurrency ceiling; `WebSearchProviderKind::ALL` lists it after
+  `Tavily`, so the operator-facing "expected one of" message is now `you, brave, tavily, searxng`.
+  `agentic_core::tool::SEARXNG_BASE_URL_HINT` and `validate_searxng_base_url` carry the operator-facing rules for
+  the mandatory endpoint (absolute `http(s)` URL with a host and no query or fragment), shared by the startup check
+  and the provider.
+
+## [0.9.0] - 2026-09-30
+
+### Added
+
+- Added an OpenAI-compatible Conversations API with conversation and item CRUD, metadata updates, cursor pagination,
+  and atomic initial-item creation. Stored Responses items can be managed through conversations (#351, #370).
+- Added `GET /v1/responses/{response_id}` for stored response payloads, preserving output, status, usage, and IDs
+  without another upstream request. History-only and legacy records return 409 because they lack a retrievable
+  snapshot (#354).
+- Added opt-in multi-agent HTTP Responses execution for stored requests with `multi_agent.enabled: true`. The gateway
+  can coordinate subagents, stream their work as one response, and resume their stored tree through
+  `previous_response_id`; it validates the stored tree and enforces a shared response budget (#372, #373).
+- Added opt-in gateway-executed `code_interpreter` using isolated Linux workers and a `code_interpreter_call` output
+  lifecycle. Building with `embedded-code-interpreter` also requires the documented runtime setup and operator
+  enablement; default builds do not register the tool (#368).
+- Added Tavily as a selectable `web_search` provider with `AGENTIC_WEB_SEARCH_PROVIDER=tavily` and `TAVILY_API_KEY`
+  (#329).
+- Passed `/v1/chat/completions` and `/v1/completions` through to the configured upstream, including streaming
+  responses and upstream status codes (#369).
+- Added execution-level OpenTelemetry spans for Responses and Messages, including inference rounds, gateway tool
+  calls, compaction, persistence, delivery, and upstream trace-context propagation (#349).
+
+### Changed
+
+- Rust API migration: `InputItem` and `OutputItem` include multi-agent item variants, and Responses streaming
+  event types include agent attribution and collaboration events. Downstream exhaustive matches must handle the
+  new variants. `WebSearchProviderKind::ALL` is now a `&'static [Self]` slice (#329, #372).
+- Preserved `prompt_cache_key` across typed Responses execution, gateway tool rounds, and internal compaction;
+  callers must supply it again on a later request if they want it on that continuation (#347).
+- Disabled Nagle's algorithm on accepted gateway connections to avoid delayed small SSE and WebSocket frames (#380).
+
+### Fixed
+
+- Rejected incomplete or malformed upstream Messages streams before built-in tool dispatch or successful
+  completion, including missing starts or stops, invalid block indexes, duplicate events, and malformed SSE data
+  (#345, #396).
+- Counted every search in a batched Messages `web_search` call against `max_uses`; a call that would exceed the
+  remaining budget is refused in full (#391).
+- Hid unexecuted gateway-executed tool calls from terminal Messages results (#346).
+- Prevented `store: false` HTTP continuations of stored Responses from writing a durable child response (#387).
+
 ## [0.8.0] - 2026-09-19
 
 ### Added

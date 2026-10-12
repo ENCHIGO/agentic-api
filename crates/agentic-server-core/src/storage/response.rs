@@ -7,7 +7,7 @@ use std::sync::Arc;
 use super::models::{item, response};
 use super::pool::DbPool;
 use super::types::{InOutItem, ResponseData, ResponseMetadata, StorageError, StoreResult};
-use crate::utils::common::{serialize_to_string, uuid7_str};
+use crate::utils::common::serialize_to_string;
 
 /// Response storage operations.
 #[derive(Clone, Debug)]
@@ -47,13 +47,14 @@ impl ResponseStore {
     ///
     /// # Errors
     ///
-    /// Returns error if response not found, database query fails, or store is disabled.
+    /// Returns an error if the response is missing or invalid, the database query
+    /// fails, or the store is disabled.
     pub async fn get(&self, response_id: &str) -> StoreResult<ResponseData> {
         let pool = self.pool()?;
         let row = response::get(pool, response_id)
             .await?
             .ok_or_else(|| StorageError::not_found("Response", response_id))?;
-        Ok(row.into())
+        row.try_into()
     }
 
     /// Rehydrates a response with full history.
@@ -62,24 +63,29 @@ impl ResponseStore {
     ///
     /// # Errors
     ///
-    /// Returns error if database query fails or store is disabled.
+    /// Returns an error if a history item is missing or invalid, the database query
+    /// fails, or the store is disabled.
     pub async fn rehydrate(&self, response_id: &str) -> StoreResult<Vec<InOutItem>> {
         let pool = self.pool()?;
         let response = self.get(response_id).await?;
         let rows = item::get_items(pool, &response.history_item_ids).await?;
         let mut items_by_id: HashMap<String, InOutItem> = rows
             .into_iter()
-            .filter_map(|row| {
-                let id = row.id.clone();
-                row.as_inout().map(|item| (id, item))
+            .map(|row| {
+                let item = InOutItem::try_from(&row)?;
+                Ok((row.id, item))
             })
-            .collect();
+            .collect::<StoreResult<_>>()?;
 
         let ordered_items = response
             .history_item_ids
             .iter()
-            .filter_map(|id| items_by_id.remove(id))
-            .collect();
+            .map(|id| {
+                items_by_id
+                    .remove(id)
+                    .ok_or_else(|| StorageError::InvalidHistoryItem { item_id: id.clone() })
+            })
+            .collect::<StoreResult<_>>()?;
 
         Ok(ordered_items)
     }
@@ -102,7 +108,7 @@ impl ResponseStore {
             .await
     }
 
-    /// Persists a response while retaining its inherited conversation ID.
+    /// Persists a response with its optional conversation association.
     ///
     /// # Errors
     ///
@@ -121,13 +127,8 @@ impl ResponseStore {
             Some(prev_id) => self.get(prev_id).await?.history_item_ids,
             None => Vec::new(),
         };
-        let mut items_: Vec<(String, String)> = Vec::new();
-        for any_item in new_items {
-            let item_id = uuid7_str("item_");
-            item_ids.push(item_id.clone());
-            let data_str = String::try_from(&any_item)?;
-            items_.push((item_id, data_str));
-        }
+        let items_ = item::serialize_new_items(new_items, item::ItemSource::ResponseHistory)?;
+        item_ids.extend(items_.iter().map(|(id, _)| id.clone()));
         let history_item_ids_json = serialize_to_string(&item_ids)?;
         let metadata_json = String::try_from(metadata)?;
 

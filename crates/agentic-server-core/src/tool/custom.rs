@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use super::declaration::ToolDeclaration;
 use crate::types::io::{CustomToolCall, FunctionTool, FunctionToolCall, OutputItem, ToolChoice};
-use crate::types::tools::{CustomToolGrammarSyntax, CustomToolInputFormat, CustomToolParam, ResponsesTool};
+use crate::types::tools::{CustomToolGrammarSyntax, CustomToolInputFormat, CustomToolParam};
 
 use super::{ToolEntry, ToolError, ToolHandler, ToolType};
 
@@ -13,11 +14,11 @@ pub(crate) struct CustomToolMap {
 }
 
 impl CustomToolMap {
-    fn from_tools(tools: &[ResponsesTool]) -> Option<Self> {
+    fn from_tools(tools: &[ToolDeclaration]) -> Option<Self> {
         let declarations = tools
             .iter()
             .filter_map(|tool| match tool {
-                ResponsesTool::Custom(param) => Some((param.name.as_str().to_owned(), param.clone())),
+                ToolDeclaration::Custom(param) => Some((param.name.as_str().to_owned(), param.clone())),
                 _ => None,
             })
             .collect::<HashMap<_, _>>();
@@ -39,12 +40,12 @@ pub struct CustomHandler;
 
 impl CustomHandler {
     #[must_use]
-    pub(crate) fn build_tool_map(tools: &[ResponsesTool]) -> Option<CustomToolMap> {
+    pub(crate) fn build_tool_map(tools: &[ToolDeclaration]) -> Option<CustomToolMap> {
         CustomToolMap::from_tools(tools)
     }
 
     pub(crate) fn validate_tool_choice(
-        tools: Option<&[ResponsesTool]>,
+        tools: Option<&[ToolDeclaration]>,
         tool_choice: &ToolChoice,
     ) -> Result<(), ToolError> {
         let map = tools.and_then(CustomToolMap::from_tools);
@@ -86,6 +87,7 @@ impl CustomHandler {
     #[must_use]
     pub(crate) fn output_item(call: &FunctionToolCall) -> OutputItem {
         OutputItem::CustomToolCall(CustomToolCall {
+            agent: call.agent.clone(),
             id: public_item_id(&call.id),
             status: Some(call.status),
             call_id: call.call_id.clone(),
@@ -221,6 +223,7 @@ mod tests {
     #[test]
     fn function_fallback_uses_public_custom_tool_shape() {
         let call = FunctionToolCall {
+            agent: None,
             id: "fc_1".to_owned(),
             call_id: "call_1".to_owned(),
             name: "raw_echo".to_owned(),

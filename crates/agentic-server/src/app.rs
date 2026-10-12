@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
@@ -5,7 +6,9 @@ use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use axum::Router;
 use axum::middleware;
 use axum::routing::{get, post};
+use axum::serve::{Listener, ListenerExt as _};
 use http::HeaderValue;
+use tokio::net::{TcpListener, TcpStream};
 #[cfg(debug_assertions)]
 use tokio::sync::oneshot;
 use tokio::sync::{Notify, Semaphore, SemaphorePermit};
@@ -15,10 +18,12 @@ use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use agentic_core::executor::ExecutionContext;
 use agentic_core::proxy::ProxyState;
 
+use crate::auth::api_key::require_api_key;
 use crate::auth::{ANTHROPIC_COUNT_TOKENS_PATH, ANTHROPIC_MESSAGES_PATH, OidcAuthenticator, require_oidc};
 use crate::handler::{
-    compact_response, count_tokens, create_conversation, create_item, delete_conversation, delete_item, health,
-    list_items, messages, models, ready, responses, responses_ws_with_auth, retrieve_conversation, retrieve_item,
+    chat_completions, compact_response, completions, count_tokens, create_conversation, create_item,
+    delete_conversation, delete_item, embeddings, health, list_items, messages, models, ready, responses,
+    responses_ws_with_auth, retrieve_conversation, retrieve_item, retrieve_model, retrieve_response,
     update_conversation,
 };
 use crate::model_capabilities::ModelCapabilities;
@@ -252,7 +257,8 @@ pub struct AppState {
     /// Whether `/ready` should omit the upstream health check.
     pub skip_llm_ready_check: bool,
     /// Server-configured API key; used as fallback when the request carries no
-    /// `Authorization` header on the executor path.
+    /// `Authorization` header on the executor path. Also authenticates local response
+    /// retrieval when OIDC is disabled.
     pub openai_api_key: Option<String>,
     /// Configured per-model input-modality overrides applied to the Codex model catalog.
     pub model_capabilities: Arc<ModelCapabilities>,
@@ -266,6 +272,23 @@ pub struct AppState {
     /// it; `/v1/conversations` bodies are small enough that a raised ceiling has
     /// no effect on them.
     pub max_request_body_size: NonZeroUsize,
+}
+
+/// The gateway's listener: `listener` with Nagle's algorithm disabled on
+/// every accepted connection.
+///
+/// Streamed responses and WebSocket turns are written as several small
+/// frames. With Nagle's algorithm on, each frame after the first waits until
+/// the client acknowledges the previous one, and clients delay that
+/// acknowledgement (about 40 ms on Linux), which stalled every streamed
+/// response and WebSocket turn. A connection whose option cannot be set is
+/// still served.
+pub fn gateway_listener(listener: TcpListener) -> impl Listener<Io = TcpStream, Addr = SocketAddr> {
+    listener.tap_io(|stream: &mut TcpStream| {
+        if let Err(error) = stream.set_nodelay(true) {
+            tracing::warn!(%error, "failed to disable Nagle's algorithm on an accepted connection");
+        }
+    })
 }
 
 pub fn build_router(state: AppState, server_config: &ServerConfig) -> Router {
@@ -284,6 +307,13 @@ pub fn build_router_with_auth(
     } else {
         public_routes
     };
+    // Retrieval reads local storage, so it cannot rely on upstream credential validation.
+    let mut retrieval_route = get(retrieve_response);
+    if authenticator.is_none()
+        && let Some(key) = state.openai_api_key.as_ref().filter(|key| !key.is_empty())
+    {
+        retrieval_route = retrieval_route.route_layer(middleware::from_fn_with_state(key.clone(), require_api_key));
+    }
     let protected_routes = Router::new()
         .route("/v1/conversations", post(create_conversation))
         .route(
@@ -300,11 +330,17 @@ pub fn build_router_with_auth(
             "/v1/conversations/{conversation_id}/items/{item_id}",
             get(retrieve_item).delete(delete_item),
         )
+        .route("/v1/chat/completions", post(chat_completions))
+        .route("/v1/completions", post(completions))
+        .route("/v1/embeddings", post(embeddings))
         .route("/v1/models", get(models))
+        // A wildcard, because model IDs such as `org/name` contain slashes.
+        .route("/v1/models/{*model}", get(retrieve_model))
         .route(ANTHROPIC_MESSAGES_PATH, post(messages))
         .route(ANTHROPIC_COUNT_TOKENS_PATH, post(count_tokens))
         .route("/v1/responses", post(responses).get(responses_ws_with_auth))
-        .route("/v1/responses/compact", post(compact_response));
+        .route("/v1/responses/compact", post(compact_response))
+        .route("/v1/responses/{response_id}", retrieval_route);
     let protected_routes = match authenticator {
         Some(authenticator) => {
             protected_routes.route_layer(middleware::from_fn_with_state(authenticator, require_oidc))

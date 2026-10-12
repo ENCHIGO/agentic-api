@@ -84,6 +84,7 @@ Initial and expected tool areas include:
 
 - File search.
 - Web search.
+- Code interpreter.
 - Web fetch.
 - Computer use.
 - Shell tools.
@@ -93,6 +94,10 @@ Initial and expected tool areas include:
 ### 4. Messages API
 
 The third major API goal is Messages.
+
+Status: `/v1/messages` forwards Anthropic Messages traffic to the upstream and
+runs a server-side loop for gateway-owned tools, which is enough for Claude
+Code. Stateful continuation and persistence for Messages remain the work below.
 
 Messages should build on the same persistence, rehydration, and execution
 foundations as Responses, while exposing the API surface expected by agentic
@@ -134,6 +139,27 @@ extend.
   streaming, and continuation.
 - Document behavior as it stabilizes, especially where compatibility or tool
   ownership rules are subtle.
+
+### Open Responses compatibility follow-ups
+
+The gateway passes the 17 published Open Responses acceptance cases when run
+sequentially against a vLLM-backed deployment. The following work remains before
+claiming broader compatibility:
+
+- Normalize `store=false` HTTP responses and model input through the same typed
+  compatibility path as stored responses. The current proxy path forwards the
+  request and response without applying gateway response normalization
+  ([#433](https://github.com/vllm-project/agentic-api/issues/433)).
+- Report effective response parameters from the actual upstream execution. A
+  schema-complete response must not silently substitute gateway defaults for
+  model or backend defaults
+  ([#434](https://github.com/vllm-project/agentic-api/issues/434)).
+- Run the acceptance suite under concurrent HTTP and WebSocket traffic with
+  representative vLLM capacity, and make timeouts and resource limits explicit
+  ([#435](https://github.com/vllm-project/agentic-api/issues/435)).
+- Add the published acceptance suite to repeatable compatibility validation and
+  extend coverage beyond its finite set of cases
+  ([#435](https://github.com/vllm-project/agentic-api/issues/435)).
 
 ## Responses API Compatibility and Interactive Execution
 
@@ -191,9 +217,18 @@ independent WebSocket lanes, async calls, and steering have distinct semantics.
   ([#334](https://github.com/vllm-project/agentic-api/issues/334)).
 - **Multi-agent orchestration:** implement isolated agent contexts and shared
   scheduling through the existing tracker
-  ([#298](https://github.com/vllm-project/agentic-api/issues/298)), including HTTP
-  execution ([#299](https://github.com/vllm-project/agentic-api/issues/299)) and
-  WebSocket injection ([#300](https://github.com/vllm-project/agentic-api/issues/300)).
+  ([#298](https://github.com/vllm-project/agentic-api/issues/298)). HTTP execution
+  for stored requests has shipped
+  ([#299](https://github.com/vllm-project/agentic-api/issues/299)); WebSocket
+  injection ([#300](https://github.com/vllm-project/agentic-api/issues/300)) and
+  stateless requests ([#393](https://github.com/vllm-project/agentic-api/issues/393))
+  remain.
+- **File search:** add the Files and Vector Stores APIs, indexed retrieval, and a
+  gateway-executed `file_search` tool with OpenAI-compatible streaming events
+  ([#34](https://github.com/vllm-project/agentic-api/pull/34)). Resolve `file_id`
+  references in Responses input against the same file store
+  ([#356](https://github.com/vllm-project/agentic-api/issues/356)). Until then,
+  `file_search` declarations are accepted but not offered to the model.
 - **Computer use:** add typed computer calls, ordered actions, screenshots, and
   explicit execution-location handling through the existing feature issue
   ([#171](https://github.com/vllm-project/agentic-api/issues/171)).

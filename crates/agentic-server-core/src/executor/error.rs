@@ -3,6 +3,7 @@ use thiserror::Error;
 
 use crate::StorageError;
 use crate::tool::ToolError;
+use crate::types::request_response::{MAX_TOOL_CALLS_PARAM, MaxToolCallsError};
 use crate::utils::common::serialize_to_vec_or_default;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +28,9 @@ impl std::fmt::Display for ResourceLimit {
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ExecutorError {
+    /// Request-owned streaming orchestration panicked. Never forward panic data.
+    #[error("stream producer panicked")]
+    StreamProducerPanicked,
     /// A storage layer operation failed.
     #[error("storage error: {0}")]
     Storage(#[from] StorageError),
@@ -104,6 +108,10 @@ pub enum ExecutorError {
     #[error("invalid request: {0}")]
     InvalidRequest(String),
 
+    /// The request's `max_tool_calls` is not an integer of at least one.
+    #[error(transparent)]
+    InvalidMaxToolCalls(#[from] MaxToolCallsError),
+
     /// The request exceeds a documented transport or component size budget.
     #[error("{0}")]
     PayloadTooLarge(String),
@@ -151,10 +159,12 @@ impl ExecutorError {
     pub fn http_status(&self) -> StatusCode {
         match self.client_visible_error() {
             Self::Storage(e) if e.is_not_found() => StatusCode::NOT_FOUND,
+            Self::Storage(e) if e.is_validation() => StatusCode::BAD_REQUEST,
             Self::LLMRequest { status, .. } | Self::LLMTransport { status, .. } => *status,
             Self::ConversationLocked { .. }
             | Self::Tool(ToolError::Config(_) | ToolError::MissingOutput { .. })
             | Self::InvalidRequest(_)
+            | Self::InvalidMaxToolCalls(_)
             | Self::PreviousResponseNotFound { .. }
             | Self::JsonError(_) => StatusCode::BAD_REQUEST,
             Self::Tool(
@@ -181,11 +191,14 @@ impl ExecutorError {
             Self::ConversationLocked { .. }
             | Self::Tool(ToolError::Config(_) | ToolError::MissingOutput { .. })
             | Self::InvalidRequest(_)
+            | Self::InvalidMaxToolCalls(_)
             | Self::PreviousResponseNotFound { .. }
             | Self::ParseError(_)
             | Self::JsonError(_)
-            | Self::PayloadTooLarge(_) => "invalid_request_error",
+            | Self::PayloadTooLarge(_)
+            | Self::Storage(StorageError::ItemCursorNotFound { .. }) => "invalid_request_error",
             Self::Storage(e) if e.is_not_found() => "not_found",
+            Self::Storage(e) if e.is_validation() => "invalid_request_error",
             Self::Conflict(_) => "conflict_error",
             Self::LLMRequest { .. } | Self::LLMTransport { .. } | Self::CompactionFailed { .. } => "upstream_error",
             Self::ResourceLimitExceeded { limit, .. } => match limit {
@@ -208,19 +221,26 @@ impl ExecutorError {
             Self::ConversationLocked { .. } => "conversation_locked",
             Self::PreviousResponseNotFound { .. } => "previous_response_not_found",
             Self::Conflict(_) => "response_already_stored",
+            Self::Storage(StorageError::InvalidItemId { .. }) => "invalid_value",
+            Self::Storage(StorageError::ItemAlreadyInConversation) => "item_already_in_conversation",
             Self::PayloadTooLarge(_) => "body_too_large",
             Self::ResourceLimitExceeded { .. } => "response_resource_limit_exceeded",
+            Self::InvalidMaxToolCalls(error) => error.code(),
             other => other.error_type(),
         }
     }
 
     /// Request parameter associated with the API error, when applicable.
     #[must_use]
-    pub fn error_param(&self) -> Option<&'static str> {
+    pub fn error_param(&self) -> Option<&str> {
         match self.client_visible_error() {
+            Self::Storage(StorageError::InvalidItemId { param, .. }) => Some(param),
+            Self::Storage(StorageError::ItemAlreadyInConversation) => Some("items"),
+            Self::Storage(StorageError::ItemCursorNotFound { .. }) => Some("after"),
             Self::ConversationLocked { .. } => Some("conversation"),
             Self::PreviousResponseNotFound { .. } => Some("previous_response_id"),
             Self::Tool(ToolError::MissingOutput { .. }) => Some("input"),
+            Self::InvalidMaxToolCalls(_) => Some(MAX_TOOL_CALLS_PARAM),
             _ => None,
         }
     }
@@ -229,6 +249,12 @@ impl ExecutorError {
     #[must_use]
     pub fn error_message(&self) -> String {
         match self.client_visible_error() {
+            Self::Storage(
+                error @ (StorageError::InvalidItemId { .. }
+                | StorageError::ItemAlreadyInConversation
+                | StorageError::ItemCursorNotFound { .. }),
+            ) => error.to_string(),
+            Self::Storage(StorageError::Database(_)) => "Internal server error".to_owned(),
             Self::Tool(error @ ToolError::MissingOutput { .. }) => error.to_string(),
             other => other.to_string(),
         }
@@ -236,7 +262,10 @@ impl ExecutorError {
 
     /// Builds the OpenAI-compatible error object shared by HTTP and SSE.
     pub(crate) fn response_error(&self) -> serde_json::Value {
-        let code = if matches!(self.client_visible_error(), Self::Tool(ToolError::MissingOutput { .. })) {
+        let code = if matches!(
+            self.client_visible_error(),
+            Self::Tool(ToolError::MissingOutput { .. }) | Self::Storage(StorageError::ItemCursorNotFound { .. })
+        ) {
             serde_json::Value::Null
         } else {
             serde_json::json!(self.error_code())
@@ -377,6 +406,24 @@ mod tests {
     }
 
     #[test]
+    fn invalid_max_tool_calls_matches_the_openai_parameter_envelope() {
+        let below = crate::types::request_response::OutOfRangeInteger::Unsigned(0);
+        let error = ExecutorError::from(MaxToolCallsError::BelowMinimum(below));
+
+        assert_eq!(error.http_status(), StatusCode::BAD_REQUEST);
+        let value: serde_json::Value = serde_json::from_slice(&error.into_response_body()).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"error": {
+                "message": "Invalid 'max_tool_calls': integer below minimum value. Expected a value >= 1, but got 0 instead.",
+                "type": "invalid_request_error",
+                "code": "integer_below_min_value",
+                "param": "max_tool_calls"
+            }})
+        );
+    }
+
+    #[test]
     fn response_id_conflict_has_a_machine_readable_conflict_envelope() {
         let error = ExecutorError::Conflict("a turn is already stored under 'resp_1'".to_owned());
 
@@ -412,6 +459,28 @@ mod tests {
                     "code": null
                 }
             })
+        );
+    }
+}
+
+#[cfg(test)]
+mod storage_error_mapping_tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn database_details_remain_in_the_source_but_not_the_response() {
+        let error = ExecutorError::Storage(StorageError::Database(sqlx::Error::Protocol(
+            "UNIQUE constraint failed: items.id".to_owned(),
+        )));
+        assert!(error.source().unwrap().to_string().contains("items.id"));
+        assert_eq!(error.http_status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let body: serde_json::Value = serde_json::from_slice(&error.into_response_body()).unwrap();
+        assert_eq!(
+            body,
+            serde_json::json!({"error": {
+                "message": "Internal server error", "type": "server_error", "code": "server_error"
+            }})
         );
     }
 }

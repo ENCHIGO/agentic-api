@@ -36,6 +36,7 @@ fn shell_output() -> Value {
 fn context() -> RequestContext {
     let request = request(true);
     RequestContext {
+        multi_agent_tree: None,
         original_request: request.clone(),
         enriched_request: request,
         new_input_items: Vec::new(),
@@ -152,12 +153,12 @@ async fn native_shell_stream_obeys_strict_lifecycle() {
     }
 }
 
-fn model_response(stream: bool, shell: bool) -> support::MockResponse {
+fn model_response(stream: bool, shell: bool, message_id: &str) -> support::MockResponse {
     let item = if shell {
         json!({"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "shell", "status": "completed",
             "arguments": shell_item("completed")["action"].to_string()})
     } else {
-        json!({"type": "message", "id": "msg_1", "role": "assistant", "status": "completed",
+        json!({"type": "message", "id": message_id, "role": "assistant", "status": "completed",
             "content": [{"type": "output_text", "text": "sandbox checked", "annotations": []}]})
     };
     if stream {
@@ -200,9 +201,9 @@ async fn run(request: RequestPayload, ctx: Arc<agentic_core::executor::Execution
 async fn client_shell_continuation_blocking_and_streaming() {
     for stream in [false, true] {
         let fixture = support::TestFixture::new_with_responses(vec![
-            model_response(stream, true),
-            model_response(stream, false),
-            model_response(stream, false),
+            model_response(stream, true, "msg_unused"),
+            model_response(stream, false, "msg_1"),
+            model_response(stream, false, "msg_2"),
         ])
         .await;
         let first = run(request(stream), fixture.exec_ctx.clone()).await;
@@ -271,10 +272,10 @@ async fn client_shell_continuation_blocking_and_streaming() {
 #[tokio::test]
 async fn submitted_shell_items_preserve_public_fields_in_storage() {
     for conversation in [false, true] {
-        let fixture = support::TestFixture::new_with_responses(vec![model_response(false, false)]).await;
+        let fixture = support::TestFixture::new_with_responses(vec![model_response(false, false, "msg_1")]).await;
         let mut req = request(false);
         if conversation {
-            req.conversation_id = Some(fixture.exec_ctx.conv_handler.create().await.unwrap().conversation_id);
+            req.conversation = Some(fixture.exec_ctx.conv_handler.create().await.unwrap().conversation_id);
         }
         let mut call = shell_item("completed");
         call["extension"] = json!("call metadata");
@@ -282,11 +283,11 @@ async fn submitted_shell_items_preserve_public_fields_in_storage() {
         output["max_output_length"] = json!(128);
         output["extension"] = json!("output metadata");
         req.input = serde_json::from_value(json!([call, output])).unwrap();
-        let conversation_id = req.conversation_id.clone();
+        let conversation_id = req.conversation.clone();
         let response = run(req, fixture.exec_ctx.clone()).await;
         let mut ctx = context();
         let stored = if let Some(id) = conversation_id {
-            ctx.original_request.conversation_id = Some(id.clone());
+            ctx.original_request.conversation = Some(id.clone());
             ctx.conversation_id = Some(id);
             fixture.exec_ctx.conv_handler.rehydrate(&ctx).await.unwrap()
         } else {
