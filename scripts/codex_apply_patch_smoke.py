@@ -172,6 +172,9 @@ def run_case(websocket: bool) -> None:
                     "Use apply_patch to replace before in patch.txt with CODEX_PATCH_OK. Then reply CODEX_PATCH_OK.",
                 ], env=env, cwd=workspace, capture_output=True, text=True, timeout=60)
                 assert result.returncode == 0, result.stdout + result.stderr
+                events = [json.loads(line) for line in result.stdout.splitlines()]
+                assert any(event.get("item", {}).get("type") == "file_change" and
+                           event["item"].get("status") == "completed" for event in events), result.stdout + result.stderr
                 assert (workspace / "patch.txt").read_text() == "CODEX_PATCH_OK\n", result.stdout + result.stderr
                 assert len(upstream.requests) == 2, upstream.requests
                 for request in upstream.requests:
