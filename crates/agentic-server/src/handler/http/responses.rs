@@ -154,3 +154,29 @@ pub async fn retrieve_response(State(state): State<AppState>, Path(response_id):
         Err(error) => executor_error_response(error),
     }
 }
+
+/// Delete a locally persisted response without invoking inference.
+///
+/// Descendants created with `previous_response_id` stay retrievable; a new request
+/// naming the deleted ID as `previous_response_id` is rejected as not found.
+#[cfg_attr(feature = "openapi", utoipa::path(
+    delete,
+    path = "/v1/responses/{response_id}",
+    params(("response_id" = String, Path, description = "Stored response ID")),
+    responses(
+        (status = 200, description = "Response deleted", body = agentic_core::types::conversations::DeletedResponse),
+        (status = 401, description = "Missing or invalid bearer token", body = crate::openapi::ApiErrorResponse),
+        (status = 404, description = "Response not found", body = crate::openapi::ApiErrorResponse),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "responses",
+))]
+pub async fn delete_response(State(state): State<AppState>, Path(response_id): Path<String>) -> Response {
+    match state.exec_ctx.resp_handler.delete(&response_id).await {
+        Ok(()) => axum::Json(agentic_core::types::conversations::DeletedResponse::response(
+            response_id,
+        ))
+        .into_response(),
+        Err(error) => executor_error_response(error),
+    }
+}

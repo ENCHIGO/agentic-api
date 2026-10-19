@@ -52,6 +52,14 @@ impl ResponseHandler {
             })
     }
 
+    /// Deletes a response created with `store=true`.
+    ///
+    /// # Errors
+    /// Returns a storage error for missing IDs or unavailable storage.
+    pub async fn delete(&self, response_id: &str) -> ExecutorResult<()> {
+        self.store.delete(response_id).await.map_err(ExecutorError::Storage)
+    }
+
     /// Retrieves the stored response for `previous_response_id`.
     ///
     /// Reads `previous_response_id` from `ctx.original_request`.

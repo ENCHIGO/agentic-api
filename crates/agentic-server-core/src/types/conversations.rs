@@ -199,6 +199,16 @@ impl DeletedResponse {
         }
     }
 
+    /// Create a deleted response object, matching the `DELETE /v1/responses/{id}` endpoint.
+    #[must_use]
+    pub fn response(id: String) -> Self {
+        Self {
+            id,
+            object: "response".to_string(),
+            deleted: true,
+        }
+    }
+
     /// Create a deleted item response.
     #[must_use]
     pub fn item(id: String) -> Self {

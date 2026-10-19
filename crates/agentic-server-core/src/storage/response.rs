@@ -58,6 +58,23 @@ impl ResponseStore {
         row.try_into()
     }
 
+    /// Deletes a stored response.
+    ///
+    /// Descendants created with `previous_response_id` stay readable because each
+    /// one stores its own complete history item list; their reference to the
+    /// deleted response is cleared by the foreign key.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StorageError::NotFound`] if no response has this ID, or an error
+    /// if the database statement fails or the store is disabled.
+    pub async fn delete(&self, response_id: &str) -> StoreResult<()> {
+        if response::delete(self.pool()?, response_id).await? == 0 {
+            return Err(StorageError::not_found("Response", response_id));
+        }
+        Ok(())
+    }
+
     /// Rehydrates a response with full history.
     ///
     /// Fetches all history items referenced by a response.

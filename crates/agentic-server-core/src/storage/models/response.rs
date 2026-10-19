@@ -67,6 +67,23 @@ pub async fn get(pool: &DbPool, id: &str) -> DbResult<Option<Response>> {
         .await
 }
 
+/// Delete a response row, returning how many rows were removed.
+///
+/// Items are left in place: a response-history item id is copied into the
+/// `history_item_ids` of every descendant, so it is not owned by this row.
+/// Foreign keys clear `responses.previous_response_id` and
+/// `conversations.latest_response_id` references to the deleted row.
+///
+/// # Errors
+/// Returns `DbResult::Err` if the database statement fails.
+pub async fn delete(pool: &DbPool, id: &str) -> DbResult<u64> {
+    let result = sqlx::query("DELETE FROM responses WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected())
+}
+
 /// Get the response that committed a conversation turn.
 ///
 /// # Errors

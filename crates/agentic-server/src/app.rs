@@ -21,9 +21,9 @@ use crate::auth::api_key::require_api_key;
 use crate::auth::{ANTHROPIC_COUNT_TOKENS_PATH, ANTHROPIC_MESSAGES_PATH, OidcAuthenticator, require_oidc};
 use crate::handler::{
     chat_completions, compact_response, completions, count_tokens, create_conversation, create_item,
-    delete_conversation, delete_item, embeddings, health, list_items, messages, models, ready, responses,
-    responses_ws_with_auth, retrieve_conversation, retrieve_item, retrieve_model, retrieve_response, transcriptions,
-    translations, update_conversation,
+    delete_conversation, delete_item, delete_response, embeddings, health, list_items, messages, models, ready,
+    responses, responses_ws_with_auth, retrieve_conversation, retrieve_item, retrieve_model, retrieve_response,
+    transcriptions, translations, update_conversation,
 };
 use crate::model_capabilities::ModelCapabilities;
 use crate::rate_limit::{RateLimitConfig, RateLimiter, enforce_rate_limit};
@@ -349,8 +349,8 @@ pub fn build_router_with_auth(
     } else {
         public_routes
     };
-    // Retrieval reads local storage, so it cannot rely on upstream credential validation.
-    let mut retrieval_route = get(retrieve_response);
+    // Retrieval and deletion act on local storage, so they cannot rely on upstream credential validation.
+    let mut retrieval_route = get(retrieve_response).delete(delete_response);
     if authenticator.is_none()
         && let Some(key) = state.openai_api_key.as_ref().filter(|key| !key.is_empty())
     {
