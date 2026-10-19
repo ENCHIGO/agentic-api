@@ -205,8 +205,11 @@ impl ConversationStore {
     ) -> StoreResult<()> {
         let pool = self.pool()?;
 
+        let is_output: Vec<bool> = new_items
+            .iter()
+            .map(|item| matches!(item, InOutItem::Output(_)))
+            .collect();
         let items_ = item::serialize_new_items(new_items, item::ItemSource::ResponseHistory)?;
-        let metadata_json = String::try_from(metadata)?;
 
         let mut tx = pool.begin().await?;
 
@@ -229,7 +232,8 @@ impl ConversationStore {
                 });
             }
         }
-        item::create_in_tx(&mut tx, items_, Some(conversation_id)).await?;
+        let created = item::create_in_tx(&mut tx, items_, Some(conversation_id)).await?;
+        let metadata_json = metadata.to_stored_json(super::response::output_row_ids(&is_output, &created))?;
         // A response branch must see the conversation as it existed at this turn,
         // including manually added items that may later be detached or deleted.
         let history_item_ids = item::ids_for_conversation_in_tx(&mut tx, conversation_id).await?;

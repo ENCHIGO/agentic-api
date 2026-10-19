@@ -64,6 +64,11 @@ impl ResponseStore {
     /// one stores its own complete history item list; their reference to the
     /// deleted response is cleared by the foreign key.
     ///
+    /// Deletion does not reach WebSocket sessions. A session that already caches this
+    /// response as its latest checkpoint keeps continuing from it without a storage
+    /// read; those sessions live per connection, possibly on another replica, and a
+    /// storage check on that path would reorder automatic steering successors.
+    ///
     /// # Errors
     ///
     /// Returns [`StorageError::NotFound`] if no response has this ID, or an error
@@ -153,13 +158,17 @@ impl ResponseStore {
             Some(prev_id) => self.get(prev_id).await?.history_item_ids,
             None => Vec::new(),
         };
+        let is_output: Vec<bool> = new_items
+            .iter()
+            .map(|item| matches!(item, InOutItem::Output(_)))
+            .collect();
         let items_ = item::serialize_new_items(new_items, item::ItemSource::ResponseHistory)?;
-        let metadata_json = String::try_from(metadata)?;
 
         let mut tx = pool.begin().await?;
 
         // History rows get their own row IDs, so repeated public IDs keep every position.
         let created = item::create_in_tx(&mut tx, items_, None).await?;
+        let metadata_json = metadata.to_stored_json(output_row_ids(&is_output, &created))?;
         item_ids.extend(created.into_iter().map(|item| item.id));
         let history_item_ids_json = serialize_to_string(&item_ids)?;
 
@@ -176,6 +185,20 @@ impl ResponseStore {
 
         Ok(())
     }
+}
+
+/// Row IDs of the output items among rows returned by [`item::create_in_tx`].
+///
+/// `is_output` must be taken from the batch before serialization; `create_in_tx`
+/// returns rows in that same order. Row IDs are used rather than public IDs because
+/// a public ID can recur in history, while each occurrence has its own row.
+pub(super) fn output_row_ids(is_output: &[bool], created: &[item::Item]) -> Vec<String> {
+    is_output
+        .iter()
+        .zip(created)
+        .filter(|(is_output, _)| **is_output)
+        .map(|(_, row)| row.id.clone())
+        .collect()
 }
 
 #[cfg(test)]

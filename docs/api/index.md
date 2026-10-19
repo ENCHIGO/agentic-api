@@ -446,6 +446,12 @@ and can still be continued: each stored response keeps its own complete
 history. Items are not removed, because one item can belong to the history of
 many responses. Unknown IDs return `404`. Authentication matches retrieval.
 
+Deletion does not reach live WebSocket sessions: a connection whose latest
+response is the deleted one can still continue from it, because the session
+caches that checkpoint and does not read storage again. A `store: true` turn
+from it then fails at persistence. New connections and HTTP requests are
+rejected as described above.
+
 ### `GET /v1/responses/{response_id}/input_items`
 
 Lists the context a stored response was generated from: items inherited through

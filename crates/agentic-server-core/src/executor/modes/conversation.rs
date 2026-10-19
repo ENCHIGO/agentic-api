@@ -318,6 +318,7 @@ impl ConversationHandler {
             effective_tools: ctx.enriched_request.tools.take(),
             tool_search_loaded_tools: None,
             response_snapshot: None,
+            output_item_ids: None,
             effective_tool_choice: ctx
                 .original_request
                 .tool_choice

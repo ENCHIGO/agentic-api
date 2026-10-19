@@ -14,16 +14,24 @@ use tokio::net::TcpListener;
 
 /// Mock inference upstream answering every turn with one uniquely identified message.
 fn answering_upstream() -> Router {
+    answering_upstream_with(json!([]))
+}
+
+/// Like [`answering_upstream`], but each turn's output starts with `extra_output`.
+fn answering_upstream_with(extra_output: Value) -> Router {
     let next_message_id = Arc::new(AtomicUsize::new(0));
     Router::new().route(
         "/v1/responses",
         post(move |Json(_): Json<Value>| {
+            let extra_output = extra_output.clone();
             let message_id = next_message_id.fetch_add(1, Ordering::Relaxed);
+            let mut output = extra_output.as_array().cloned().unwrap_or_default();
+            output.push(json!({
+                "type":"message", "id":format!("msg_answer_{message_id}"), "role":"assistant",
+                "status":"completed", "content":[{"type":"output_text", "text":format!("answer {message_id}")}]}));
             async move {
                 Json(json!({"id":"resp_upstream", "object":"response", "created_at":123,
-                "model":"test-model", "status":"completed", "output":[{
-                    "type":"message", "id":format!("msg_answer_{message_id}"), "role":"assistant",
-                    "status":"completed", "content":[{"type":"output_text", "text":format!("answer {message_id}")}]}],
+                "model":"test-model", "status":"completed", "output":output,
                 "usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}))
             }
         }),
@@ -39,9 +47,13 @@ struct Harness {
 
 impl Harness {
     async fn start() -> Self {
+        Self::start_with(answering_upstream()).await
+    }
+
+    async fn start_with(upstream: Router) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let mut config = common::test_config(&format!("http://{}", listener.local_addr().unwrap()));
-        let upstream = tokio::spawn(async move { axum::serve(listener, answering_upstream()).await.unwrap() });
+        let upstream = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
         config.db_url = Some("sqlite://?mode=memory".into());
         let exec = Arc::new(ExecutionContext::from_config(&config).await.unwrap());
         let mut state = common::test_state(&config);
@@ -253,5 +265,69 @@ async fn input_items_reject_what_retrieval_rejects() {
         .unwrap();
     assert_eq!(deleted.status(), StatusCode::OK);
     assert_eq!(harness.input_items(stored_id, "").await.status(), StatusCode::NOT_FOUND);
+    harness.stop().await;
+}
+
+#[tokio::test]
+async fn input_items_exclude_own_output_items_that_carry_no_wire_id() {
+    // A compaction item's wire `id` is optional; storage generates one for the row.
+    let harness = Harness::start_with(answering_upstream_with(
+        json!([{"type":"compaction", "encrypted_content":"opaque"}]),
+    ))
+    .await;
+    let first = harness
+        .create(json!({"model":"test-model", "input":"first", "store":true}))
+        .await;
+    let first_id = first["id"].as_str().unwrap();
+    assert!(
+        first["output"][0].get("id").is_none(),
+        "the upstream compaction item has no id"
+    );
+    let second = harness
+        .create(json!({"model":"test-model", "input":"second", "store":true, "previous_response_id":first_id}))
+        .await;
+
+    let own = harness.page(first_id, "?order=asc").await;
+    assert_eq!(own["data"].as_array().unwrap().len(), 1, "{own}");
+    assert_eq!(texts(&own), ["first"]);
+    // The same item, under its generated ID, is input to the next turn.
+    let next = harness.page(second["id"].as_str().unwrap(), "?order=asc").await;
+    let types: Vec<&str> = next["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["type"].as_str().unwrap())
+        .collect();
+    assert_eq!(types, ["message", "compaction", "message", "message"], "{next}");
+    assert!(next["data"][1]["id"].as_str().unwrap().starts_with("cmp_"));
+    harness.stop().await;
+}
+
+#[tokio::test]
+async fn input_items_keep_an_earlier_turn_output_that_shares_this_turn_output_id() {
+    // An upstream may reuse a message ID across turns. Each occurrence is its own history
+    // row, so only this turn's row is excluded, not the earlier turn's answer.
+    let upstream = Router::new().route(
+        "/v1/responses",
+        post(|Json(_): Json<Value>| async {
+            Json(json!({"id":"resp_upstream", "object":"response", "created_at":123,
+            "model":"test-model", "status":"completed", "output":[{
+                "type":"message", "id":"msg_reused", "role":"assistant", "status":"completed",
+                "content":[{"type":"output_text", "text":"same id"}]}],
+            "usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}))
+        }),
+    );
+    let harness = Harness::start_with(upstream).await;
+    let first = harness
+        .create(json!({"model":"test-model", "input":"first", "store":true}))
+        .await;
+    let second = harness
+        .create(json!({"model":"test-model", "input":"second", "store":true,
+            "previous_response_id":first["id"]}))
+        .await;
+    assert_eq!(
+        texts(&harness.page(second["id"].as_str().unwrap(), "?order=asc").await),
+        ["first", "same id", "second"]
+    );
     harness.stop().await;
 }

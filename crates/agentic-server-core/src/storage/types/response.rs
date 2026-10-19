@@ -22,6 +22,13 @@ pub struct ResponseMetadata {
     /// Exact terminal Responses payload, absent for legacy and non-Responses records.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_snapshot: Option<Box<ResponsePayload>>,
+    /// Item row IDs of this response's own output, in history order.
+    ///
+    /// Recorded by persistence from the rows it actually writes, so it includes IDs
+    /// generated for output kinds whose wire `id` is optional. Absent for records
+    /// written before it existed; readers then fall back to the snapshot's output IDs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_item_ids: Option<Vec<String>>,
     pub model: String,
     pub previous_response_id: Option<String>,
     pub effective_tools: Option<Vec<ResponsesTool>>,
@@ -108,6 +115,18 @@ pub(in crate::storage) fn decode_metadata(
         }
         ResponseMetadata::deserialize(metadata).map(Some)
     })
+}
+
+impl ResponseMetadata {
+    /// Serialize for one stored row, recording which written items are its own output.
+    ///
+    /// # Errors
+    /// Returns [`StorageError::Serialization`] if the metadata cannot be encoded.
+    pub(in crate::storage) fn to_stored_json(&self, output_item_ids: Vec<String>) -> Result<String, StorageError> {
+        let mut persisted = self.clone();
+        persisted.output_item_ids = Some(output_item_ids);
+        String::try_from(&persisted)
+    }
 }
 
 impl TryFrom<&ResponseMetadata> for String {
@@ -222,6 +241,7 @@ mod tests {
             effective_tools: None,
             tool_search_loaded_tools: None,
             response_snapshot: None,
+            output_item_ids: None,
             effective_tool_choice: ToolChoice::Auto,
             effective_instructions: Some("be helpful".to_string()),
         };

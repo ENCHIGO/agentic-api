@@ -1265,6 +1265,7 @@ mod tests {
                     effective_tools: None,
                     tool_search_loaded_tools: None,
                     response_snapshot: None,
+                    output_item_ids: None,
                     effective_tool_choice: crate::ToolChoice::Auto,
                     effective_instructions: None,
                 },

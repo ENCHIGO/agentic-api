@@ -68,7 +68,8 @@ impl ResponseHandler {
     /// Input items are the full context the response was generated from: items
     /// inherited through `previous_response_id` or its conversation, including
     /// earlier turns' outputs, followed by this turn's input. Only this response's
-    /// own output is excluded, identified by the IDs in its stored payload.
+    /// own output is excluded, identified by the output item IDs recorded when it
+    /// was stored (for older records, the IDs in its stored payload).
     ///
     /// Pagination follows conversation item listing: `after` is the public ID of
     /// the last item on the previous page, and `limit` is clamped to `1..=100`.
@@ -90,13 +91,25 @@ impl ResponseHandler {
                 "stored response has no retrievable input items; create a new response with store=true".into(),
             )
         })?;
-        let own_output: HashSet<&str> = snapshot.output.iter().filter_map(OutputItem::id).collect();
+        // Persistence records the row IDs of this response's own output, including rows
+        // for output kinds whose wire `id` is optional. Older records only have the
+        // snapshot's public IDs, matched against each row's public ID instead.
+        let recorded: Option<HashSet<&str>> = stored
+            .metadata
+            .output_item_ids
+            .as_deref()
+            .map(|ids| ids.iter().map(String::as_str).collect());
+        let snapshot_ids: HashSet<&str> = snapshot.output.iter().filter_map(OutputItem::id).collect();
         let rows = self.store.history_rows(&stored).await?;
 
         let mut items = Vec::with_capacity(rows.len());
         for row in &rows {
             let item = InOutItem::try_from(row)?;
-            let is_own_output = matches!(item, InOutItem::Output(_)) && own_output.contains(row.public_id());
+            let is_own_output = matches!(item, InOutItem::Output(_))
+                && match &recorded {
+                    Some(ids) => ids.contains(row.id.as_str()),
+                    None => snapshot_ids.contains(row.public_id()),
+                };
             if !is_own_output {
                 items.push(ItemResponse::new(row.public_id().to_owned(), item));
             }
@@ -184,6 +197,7 @@ impl ResponseHandler {
             effective_tools: ctx.enriched_request.tools.take(),
             tool_search_loaded_tools: None,
             response_snapshot: None,
+            output_item_ids: None,
             effective_tool_choice: ctx
                 .original_request
                 .tool_choice
