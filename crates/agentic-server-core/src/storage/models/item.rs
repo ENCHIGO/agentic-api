@@ -6,9 +6,10 @@ use std::fmt::Write;
 use tracing::warn;
 
 use super::super::pool::{DbPool, DbResult, DbTransaction};
-use super::super::types::item::{InOutItem, ItemKind, STORED_CODE_INTERPRETER_ORIGIN_KEY, STORED_ITEM_KIND_KEY};
+use super::super::types::item::{ItemKind, STORED_CODE_INTERPRETER_ORIGIN_KEY, STORED_ITEM_KIND_KEY};
 use crate::storage::{StorageError, StoreResult};
 use crate::types::conversations::ItemOrder;
+use crate::types::io::InOutItem;
 use crate::types::io::code_interpreter::CodeInterpreterCallOrigin;
 use crate::types::io::{InputItem, OutputItem, ReasoningOutput};
 use crate::utils::common::{deserialize_from_str_opt, utcnow_str, uuid7_str};
@@ -116,19 +117,13 @@ impl Item {
             return output.map(InOutItem::Output);
         }
 
-        let input = self.as_input();
-        if input.as_ref().is_some_and(|item| !matches!(item, InputItem::Unknown)) {
-            return input.map(InOutItem::Input);
-        }
-
-        match (input, output) {
-            (Some(input), _) => Some(InOutItem::Input(input)),
-            (_, Some(output)) => Some(InOutItem::Output(output)),
-            _ => {
+        self.as_input()
+            .map(InOutItem::Input)
+            .or_else(|| output.map(InOutItem::Output))
+            .or_else(|| {
                 warn!(item_id = %self.id, "unrecognized item type in stored data");
                 None
-            }
-        }
+            })
     }
 
     fn stored_item_kind(&self) -> Option<ItemKind> {
@@ -611,7 +606,7 @@ mod tests {
             && call.code == "print(7)" && call.outputs.as_ref().is_some_and(|outputs| outputs.len() == 1))
         );
         let model_input =
-            serde_json::to_value(ResponsesInput::Items(inputs).model_input()).expect("model input serializes");
+            serde_json::to_value(ResponsesInput::from(inputs).model_input()).expect("model input serializes");
         assert_eq!(model_input[2]["type"], "code_interpreter_call");
         assert!(model_input[2].get(STORED_CODE_INTERPRETER_ORIGIN_KEY).is_none());
     }
@@ -972,14 +967,10 @@ mod tests {
 #[cfg(test)]
 mod item_id_tests {
     use super::*;
-    use crate::types::conversations::ConversationItem;
     use serde_json::json;
 
     fn stored(value: serde_json::Value) -> InOutItem {
-        match serde_json::from_value::<ConversationItem>(value).unwrap() {
-            ConversationItem::Input(item) => InOutItem::Input(item),
-            ConversationItem::Output(item) => InOutItem::Output(item),
-        }
+        serde_json::from_value(value).unwrap()
     }
 
     #[test]

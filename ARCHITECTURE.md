@@ -556,8 +556,9 @@ Responses and Messages APIs. It is not where tool execution, state transitions, 
 access happen — those live in `tool/`, `executor/`, and `storage/` respectively.
 
 - **`types/request_response.rs`** — `RequestPayload` is the deserialized incoming
-  request. Its `to_upstream_request(&self, stream: bool) -> Result<UpstreamRequest<'_>, ToolError>`
-  is the seam between the OpenAI-shaped request and vLLM's contract. It: flattens Codex
+  request. Its `to_upstream_request(&self, stream: bool) -> Result<UpstreamRequest<'_>, UpstreamRequestError>`
+  is the seam between the OpenAI-shaped request and vLLM's contract. It validates
+  message content through `ResponsesInput::validate()` before normalization, then flattens Codex
   namespace tool members to model-visible names (into the tool layer's `ToolDeclaration`s),
   validates every declared tool (`ToolDeclaration::validate()`), and normalizes each
   supported model-visible tool to `UpstreamTool::Function`
@@ -570,6 +571,9 @@ access happen — those live in `tool/`, `executor/`, and `storage/` respectivel
   and applies `ResponsesInput::model_input()`. It's called from
   `executor/upstream.rs`'s `fetch_blocking_payload` and `fetch_stream_payload` — the
   two functions that actually build the outbound request to vLLM.
+  Input validation also runs before and after rehydration. It is separate from
+  deserialization because raw proxy routing preserves unsupported content for the
+  upstream to interpret; typed construction reports input and tool errors separately.
 - **`types/io/`** — `input.rs` (inbound message/tool-call/tool-result shapes,
   `ResponsesInput`), `output.rs` (outbound output items: messages, function calls, web
   search/MCP calls, reasoning — plus the `ApplyDone` trait described below), `tools.rs`
@@ -583,6 +587,15 @@ access happen — those live in `tool/`, `executor/`, and `storage/` respectivel
   retained user messages and items after the checkpoint remain. This keeps rich
   continuation state available to orchestration without sending unsupported public
   item types to vLLM.
+- **`types/io/item.rs`** — `InOutItem` is the shared input/output union used by
+  `ResponsesInput::Items`, conversation requests/resources, and retained history.
+  Input JSON is validated by the derived `InputItem` decoder; output-only web-search
+  and MCP records retain their typed payloads as `OutputItem`s. Shared shapes must
+  satisfy input requirements rather than falling back to the permissive upstream
+  output decoder. `into_canonical_items` preserves these public records, while
+  `InOutItem::into_input_items` uses the existing output-to-input conversion and
+  client-tool lowering for model history. Storage row markers and legacy decoding
+  remain in `storage/`; there is no separate conversation-item enum.
 - **`types/io/multi_agent.rs`** — public collaboration output items and agent-message
   content. Its `input` module defines replay forms with optional IDs; output IDs remain
   required. Agent-message content includes text, images, files, refusals and encrypted
@@ -639,7 +652,7 @@ There are two adapters around that one policy:
   `OutputItem::to_input_item` and appends the result to the current request before the
   next round. Its handling of `ResponsesInput::Text` versus `ResponsesInput::Items` is
   container mutation, not a second conversion policy.
-- `storage/types/item.rs::InOutItem::into_input_items` uses the same method when
+- `types/io/item.rs::InOutItem::into_input_items` uses the same method when
   rebuilding continuation input from persisted history. Already stored `InputItem`s
   pass through unchanged.
 
@@ -1554,9 +1567,9 @@ round that omits `usage` still reports the hidden rounds' counters.
   `From`/`TryFrom` impls: `ConversationData`/`ConversationSnapshot`, `ResponseData`/
   `ResponseMetadata` (parses the JSON metadata column into a typed struct, including an optional
   terminal `ResponsePayload` snapshot for GET retrieval and a versioned multi-agent
-  tree checkpoint for continuation),
-  `InOutItem` (parses an `Item.data` JSON blob back into a typed `InputItem` or
-  `OutputItem`), and `StorageError`. Store rehydration uses `TryFrom<&Item>` and fails
+  tree checkpoint for continuation), and `StorageError`. The storage-specific `TryFrom<&Item>` implementation decodes
+  rows into the shared `types/io::InOutItem`, preserving input/output identity and
+  private origin markers. Store rehydration uses this conversion and fails
   if a row cannot be decoded; response rehydration also rejects missing referenced rows.
   It must not silently omit malformed reasoning from a continuation.
   `TryFrom<Response>` rejects malformed history references and effective metadata;
@@ -1832,7 +1845,7 @@ router, reusing the same core logic in-process.
 | Change client streaming order, buffering, or backpressure | `executor/relay.rs` and `executor/relay/`; keep parsing in `events/` and response assembly in `executor/accumulator/` |
 | Move streaming ingestion to a worker | Benchmark the equivalent inline and worker paths under [#245](https://github.com/vllm-project/agentic-api/issues/245) before changing executor placement |
 | Feed response output into the next inference round | `types/io/output.rs::OutputItem::to_input_item`; use `executor/gateway.rs::append_output_items_to_input` only to append those converted items |
-| Change continuation history visibility | `storage/types/item.rs::into_input_items` → `types/io/output.rs::to_input_item` (preservation) → `types/io/input.rs::model_input` (upstream visibility) |
+| Change continuation history visibility | `types/io/item.rs::InOutItem::into_input_items` → `types/io/output.rs::to_input_item` (preservation) → `types/io/input.rs::model_input` (upstream visibility) |
 | Add a CRUD operation beyond persist/rehydrate | `executor/modes/conversation.rs` or `modes/response.rs`, backed by `storage/conversation.rs` / `storage/response.rs` |
 | Change how output items are assembled from a stream | `executor/accumulator/` — extend the typed slot and transition matches through the existing `RoundIngestion` path |
 | Add a new Responses/Messages wire field | `types/io/` or `types/messages/` — shape only, no behavior |

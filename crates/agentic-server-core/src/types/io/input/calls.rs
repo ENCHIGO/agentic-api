@@ -24,8 +24,7 @@ impl InputItem {
             | Self::Reasoning(_)
             | Self::McpListTools(_)
             | Self::Compaction(_)
-            | Self::CompactionTrigger
-            | Self::Unknown => None,
+            | Self::CompactionTrigger => None,
         }
     }
 
@@ -51,8 +50,7 @@ impl InputItem {
             | Self::Reasoning(_)
             | Self::McpListTools(_)
             | Self::Compaction(_)
-            | Self::CompactionTrigger
-            | Self::Unknown => None,
+            | Self::CompactionTrigger => None,
         }
     }
 
@@ -76,8 +74,7 @@ impl InputItem {
             | Self::Reasoning(_)
             | Self::McpListTools(_)
             | Self::Compaction(_)
-            | Self::CompactionTrigger
-            | Self::Unknown => false,
+            | Self::CompactionTrigger => false,
         }
     }
 }

@@ -115,7 +115,7 @@ impl MultiAgentRun {
         }
         let context = &self.contexts[&turn.agent];
         let mut request = context.request.clone();
-        request.input = ResponsesInput::Items(context.stored.history.clone());
+        request.input = ResponsesInput::from(context.stored.history.clone());
         let refresh_tools = context.discovery_dirty;
         let tool_search = if refresh_tools {
             // Live client discovery adds public outputs to only the owner's history.
@@ -280,10 +280,7 @@ impl MultiAgentRun {
             .get_mut(&turn.agent)
             .expect("completed work has a canonical context");
         context.execution = execution;
-        context.stored.history = match &request.input {
-            ResponsesInput::Items(items) => items.clone(),
-            ResponsesInput::Text(_) => Vec::from(&request.input),
-        };
+        context.stored.history = request.input.to_replay_inputs();
         context.stored.history.append(&mut context.inputs_during_round);
         context.generation += 1;
         context.request = request;

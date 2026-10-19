@@ -888,8 +888,9 @@ fn check_reused_item_occurrences(recording: &Cassette) {
 #[tokio::test]
 async fn existing_conversation_item_error_matches_openai_recording() {
     use agentic_core::executor::ExecutorError;
-    use agentic_core::storage::{ConversationStore, InOutItem, create_pool_with_schema};
+    use agentic_core::storage::{ConversationStore, create_pool_with_schema};
     use agentic_core::types::conversations::CreateItemRequest;
+    use agentic_core::types::io::InOutItem;
 
     let reference = cassette("edge-cases", "openai").expect("OpenAI edge-case recording");
     let pool = create_pool_with_schema(Some("sqlite::memory:")).await.unwrap();
@@ -902,16 +903,8 @@ async fn existing_conversation_item_error_matches_openai_recording() {
         .unwrap();
     let before = store.rehydrate_snapshot(&conversation.conversation_id).await.unwrap();
     let request: CreateItemRequest = serde_json::from_value(reference.turns[17].request.body.clone()).unwrap();
-    let items = request
-        .items
-        .into_iter()
-        .map(|item| match item {
-            agentic_core::types::conversations::ConversationItem::Input(item) => InOutItem::Input(item),
-            agentic_core::types::conversations::ConversationItem::Output(item) => InOutItem::Output(item),
-        })
-        .collect();
     let error: ExecutorError = store
-        .create_items("default_tenant", &conversation.conversation_id, items)
+        .create_items("default_tenant", &conversation.conversation_id, request.items)
         .await
         .unwrap_err()
         .into();
@@ -926,8 +919,9 @@ async fn existing_conversation_item_error_matches_openai_recording() {
 #[tokio::test]
 async fn deleted_cursor_error_body_matches_openai_recording() {
     use agentic_core::executor::ExecutorError;
-    use agentic_core::storage::{ConversationStore, InOutItem, create_pool_with_schema};
+    use agentic_core::storage::{ConversationStore, create_pool_with_schema};
     use agentic_core::types::conversations::ItemOrder;
+    use agentic_core::types::io::InOutItem;
 
     let reference = cassette("edge-cases", "openai").expect("OpenAI edge-case recording");
     let pool = create_pool_with_schema(Some("sqlite::memory:")).await.unwrap();

@@ -1,7 +1,10 @@
 mod calls;
 mod content;
 mod conversions;
+mod validation;
 mod window;
+
+pub use validation::InputValidationError;
 
 pub(crate) use window::{
     async_records, latest_compaction_window, model_items, open_async_call_ids, retain_window, retained_async_call,
@@ -16,16 +19,30 @@ use serde_json::Value;
 
 use crate::types::event::MessageStatus;
 use crate::types::tools::{ResponsesTool, ToolSearchExecution, ToolSearchStatus};
-use crate::utils::common::deserialize_from_value;
+
+use super::{InOutItem, OutputItem};
 
 use super::code_interpreter::CodeInterpreterCall;
 use super::multi_agent::{AgentAttribution, InputAgentMessage, InputMultiAgentCall, InputMultiAgentCallOutput};
 use super::output::{CustomToolCall, FunctionToolCall, McpListTools, MessagePhase, ReasoningOutput, ToolSearchCall};
 use super::shell::{ShellCall, ShellCallOutputMessage, ShellCallStatus};
 
+/// The optional wire discriminator of a message input item.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub enum InputMessageType {
+    #[default]
+    #[serde(rename = "message")]
+    Message,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct InputMessage {
+    // The InputItem schema already supplies this discriminator. Keeping it typed
+    // here lets the untagged message variant accept an omitted type, but no other type.
+    #[serde(default, rename = "type")]
+    #[cfg_attr(feature = "openapi", schema(ignore))]
+    pub kind: InputMessageType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent: Option<AgentAttribution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -287,7 +304,7 @@ impl From<CustomToolCallOutputMessage> for FunctionToolResultMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum InputItem {
     #[serde(rename = "multi_agent_call")]
@@ -296,8 +313,6 @@ pub enum InputItem {
     MultiAgentCallOutput(InputMultiAgentCallOutput),
     #[serde(rename = "agent_message")]
     AgentMessage(InputAgentMessage),
-    #[serde(rename = "message")]
-    Message(InputMessage),
     /// The model's tool invocation — appears in rehydrated history so vLLM sees
     /// the full call/output pair across turns.
     #[serde(rename = "function_call")]
@@ -332,48 +347,12 @@ pub enum InputItem {
     /// Carries no payload; it is never forwarded to the upstream model.
     #[serde(rename = "compaction_trigger")]
     CompactionTrigger,
-    #[serde(other)]
-    Unknown,
-}
-
-impl<'de> Deserialize<'de> for InputItem {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let mut value = Value::deserialize(deserializer)?;
-        // Consume the enum discriminator before a flattened payload can retain it.
-        let kind = value.as_object_mut().and_then(|object| object.remove("type"));
-        let item = match kind.as_ref().and_then(Value::as_str) {
-            None | Some("message") => deserialize_from_value(value).map(Self::Message),
-            Some("function_call") => deserialize_from_value(value).map(Self::FunctionCall),
-            Some("code_interpreter_call") => deserialize_from_value(value).map(Self::CodeInterpreterCall),
-            Some("function_call_output") => deserialize_from_value(value).map(Self::FunctionCallOutput),
-            Some("tool_search_call") => deserialize_from_value(value).map(Self::ToolSearchCall),
-            Some("tool_search_output") => deserialize_from_value(value).map(Self::ToolSearchOutput),
-            Some("custom_tool_call") => deserialize_from_value(value).map(Self::CustomToolCall),
-            Some("custom_tool_call_output") => deserialize_from_value(value).map(Self::CustomToolCallOutput),
-            Some("shell_call") => deserialize_from_value(value).map(Self::ShellCall),
-            Some("shell_call_output") => deserialize_from_value(value).map(Self::ShellCallOutput),
-            Some("reasoning") => deserialize_from_value(value).map(Self::Reasoning),
-            Some("mcp_list_tools") => deserialize_from_value(value).map(Self::McpListTools),
-            Some("compaction") => deserialize_from_value(value).map(Self::Compaction),
-            Some("multi_agent_call") => deserialize_from_value(value).map(Self::MultiAgentCall),
-            Some("multi_agent_call_output") => deserialize_from_value(value).map(Self::MultiAgentCallOutput),
-            Some("agent_message") => deserialize_from_value(value).map(Self::AgentMessage),
-            Some("compaction_trigger") => Ok(Self::CompactionTrigger),
-            Some(_) => return Ok(Self::Unknown),
-        };
-        item.map_err(serde::de::Error::custom)
-    }
+    /// Messages allow an omitted discriminator, but reject any type other than `message`.
+    #[serde(untagged)]
+    Message(InputMessage),
 }
 
 impl InputItem {
-    #[must_use]
-    pub(crate) fn is_unknown(&self) -> bool {
-        matches!(self, Self::Unknown)
-    }
-
     #[must_use]
     pub(crate) fn is_compaction_trigger(&self) -> bool {
         matches!(self, Self::CompactionTrigger)
@@ -398,7 +377,7 @@ impl InputItem {
 #[serde(untagged)]
 pub enum ResponsesInput {
     Text(String),
-    Items(Vec<InputItem>),
+    Items(Vec<InOutItem>),
 }
 
 impl Default for ResponsesInput {
@@ -410,29 +389,35 @@ impl Default for ResponsesInput {
 }
 
 impl ResponsesInput {
-    /// Iterate over the items in the canonical context sent to vLLM without cloning them.
-    pub(crate) fn model_items(&self) -> impl Iterator<Item = &InputItem> {
-        let items = match self {
-            Self::Text(_) => &[][..],
-            Self::Items(items) => items.as_slice(),
-        };
-        model_items(items)
+    /// Project replay inputs without lowering public input tool calls.
+    pub(crate) fn to_replay_inputs(&self) -> Vec<InputItem> {
+        match self {
+            Self::Text(_) => Vec::from(self),
+            Self::Items(items) => InOutItem::to_replay_inputs(items),
+        }
     }
 
     #[must_use]
     pub fn contains_compaction(&self) -> bool {
-        matches!(self, Self::Items(items) if items.iter().any(|item| matches!(item, InputItem::Compaction(_))))
+        matches!(self, Self::Items(items) if items.iter().any(|item| matches!(item,
+            InOutItem::Input(InputItem::Compaction(_)) | InOutItem::Output(OutputItem::Compaction(_)))))
     }
 
     #[must_use]
     pub fn has_compaction_trigger(&self) -> bool {
-        matches!(self, Self::Items(items) if items.iter().any(InputItem::is_compaction_trigger))
+        matches!(self, Self::Items(items) if items.iter().any(|item| matches!(item,
+            InOutItem::Input(InputItem::CompactionTrigger))))
     }
 
     /// Whether the input replays a call to an async tool.
     #[must_use]
     pub fn has_async_call(&self) -> bool {
-        matches!(self, Self::Items(items) if items.iter().any(InputItem::is_async_call))
+        matches!(self, Self::Items(items) if items.iter().any(|item| match item {
+            InOutItem::Input(item) => item.is_async_call(),
+            InOutItem::Output(OutputItem::FunctionCall(call)) => call.async_execution,
+            InOutItem::Output(OutputItem::CustomToolCall(call)) => call.async_execution,
+            InOutItem::Output(_) => false,
+        }))
     }
 
     /// Return the canonical context sent to vLLM.
@@ -448,16 +433,15 @@ impl ResponsesInput {
             return Cow::Borrowed(self);
         };
 
-        if latest_compaction_window(items).is_none() {
-            if items.iter().any(|item| !item.is_model_visible()) {
-                let stripped = self.model_items().cloned().collect();
-                return Cow::Owned(Self::Items(stripped));
-            }
+        if !self.contains_compaction()
+            && items
+                .iter()
+                .all(|item| matches!(item, InOutItem::Input(input) if input.is_model_visible()))
+        {
             return Cow::Borrowed(self);
         }
-
-        let model_items = self
-            .model_items()
+        let projected = InOutItem::to_replay_inputs(items);
+        let model = model_items(&projected)
             .map(|item| match item {
                 InputItem::Compaction(compaction) => InputItem::Message(InputMessage {
                     role: "assistant".to_owned(),
@@ -468,8 +452,8 @@ impl ResponsesInput {
                 }),
                 other => other.clone(),
             })
-            .collect();
-        Cow::Owned(Self::Items(model_items))
+            .collect::<Vec<_>>();
+        Cow::Owned(Self::from(model))
     }
 }
 
@@ -511,7 +495,7 @@ mod tests {
             super::super::code_interpreter::CodeInterpreterCallOrigin::Upstream
         );
         let model_input =
-            serde_json::to_value(ResponsesInput::Items(vec![input]).model_input()).expect("model input serializes");
+            serde_json::to_value(ResponsesInput::from(vec![input]).model_input()).expect("model input serializes");
         assert_eq!(model_input[0]["type"], "code_interpreter_call");
         assert_eq!(model_input[0]["code"], "print(7)");
         assert!(model_input[0].get("_agentic_code_interpreter_origin").is_none());
@@ -539,7 +523,7 @@ mod tests {
                 panic!("expected a message item");
             };
             assert_eq!(message.phase, expected);
-            let input = ResponsesInput::Items(vec![item]);
+            let input = ResponsesInput::from(vec![item]);
             assert_eq!(
                 serde_json::to_value(input.model_input()).unwrap(),
                 serde_json::json!([wire])
@@ -578,7 +562,7 @@ mod tests {
         };
         assert_eq!(items.len(), 1);
 
-        let InputItem::Message(message) = &items[0] else {
+        let InOutItem::Input(InputItem::Message(message)) = &items[0] else {
             panic!("expected InputItem::Message");
         };
         assert_eq!(message.role, "user");
@@ -622,9 +606,11 @@ mod tests {
             panic!("expected ResponsesInput::Items");
         };
         assert_eq!(items.len(), 3);
-        assert!(matches!(&items[0], InputItem::Message(message) if message.role == "user"));
-        assert!(matches!(&items[1], InputItem::FunctionCall(call) if call.name == "lookup"));
-        assert!(matches!(&items[2], InputItem::CustomToolCallOutput(output) if output.call_id == "call_1"));
+        assert!(matches!(&items[0], InOutItem::Input(InputItem::Message(message)) if message.role == "user"));
+        assert!(matches!(&items[1], InOutItem::Input(InputItem::FunctionCall(call)) if call.name == "lookup"));
+        assert!(
+            matches!(&items[2], InOutItem::Input(InputItem::CustomToolCallOutput(output)) if output.call_id == "call_1")
+        );
     }
 
     #[test]
@@ -645,7 +631,7 @@ mod tests {
         };
         assert_eq!(items.len(), 1);
 
-        let InputItem::Message(message) = &items[0] else {
+        let InOutItem::Input(InputItem::Message(message)) = &items[0] else {
             panic!("expected InputItem::Message");
         };
         let InputMessageContent::Parts(parts) = &message.content else {
@@ -766,12 +752,13 @@ mod tests {
             );
         }
 
-        let future: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "future_search_item",
-            "payload": {"opaque": true}
-        }))
-        .expect("unrelated future item remains forward-compatible");
-        assert!(matches!(future, InputItem::Unknown));
+        assert!(
+            serde_json::from_value::<InputItem>(serde_json::json!({
+                "type": "future_search_item",
+                "payload": {"opaque": true}
+            }))
+            .is_err()
+        );
     }
 
     #[test]
@@ -862,7 +849,7 @@ mod tests {
         let ResponsesInput::Items(items) = &input else {
             panic!("expected items");
         };
-        let InputItem::Message(message) = &items[0] else {
+        let InOutItem::Input(InputItem::Message(message)) = &items[0] else {
             panic!("expected message item");
         };
         let InputMessageContent::Parts(parts) = &message.content else {
@@ -987,7 +974,7 @@ mod tests {
 
     #[test]
     fn model_input_strips_internal_mcp_list_tools() {
-        let input = ResponsesInput::Items(vec![
+        let input = ResponsesInput::from(vec![
             InputItem::McpListTools(McpListTools::new("mcpl_1", "counter", Vec::new())),
             InputItem::Message(InputMessage {
                 role: "user".to_owned(),
@@ -1106,12 +1093,12 @@ mod tests {
         let ResponsesInput::Items(items) = &input else {
             panic!("expected item input");
         };
-        assert!(matches!(items[0], InputItem::ShellCall(_)));
-        assert!(matches!(items[1], InputItem::ShellCallOutput(_)));
+        assert!(matches!(items[0], InOutItem::Input(InputItem::ShellCall(_))));
+        assert!(matches!(items[1], InOutItem::Input(InputItem::ShellCallOutput(_))));
 
         let borrowed = serde_json::to_value(Vec::<InputItem>::from(&input)).unwrap();
         let owned = serde_json::to_value(Vec::<InputItem>::from(input.clone())).unwrap();
-        let prepared = ResponsesInput::Items(Vec::from(&input));
+        let prepared = ResponsesInput::from(Vec::from(&input));
         let model = serde_json::to_value(prepared.model_input()).unwrap();
         assert_eq!(borrowed, owned);
         assert_eq!(borrowed, model);

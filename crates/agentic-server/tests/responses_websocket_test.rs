@@ -28,11 +28,10 @@ use tokio_util::sync::CancellationToken;
 use agentic_core::config::ResponsesConfig;
 use agentic_core::executor::{ConversationHandler, ExecutionContext, RequestContext, ResponseHandler};
 use agentic_core::proxy::ProxyState;
-use agentic_core::storage::{
-    ConversationStore, DbPool, InOutItem, ResponseMetadata, ResponseStore, create_pool_with_schema,
-};
+use agentic_core::storage::{ConversationStore, DbPool, ResponseMetadata, ResponseStore, create_pool_with_schema};
 use agentic_core::tool::{WebSearchHandler, model_visible_namespace_member_name};
 use agentic_core::types::RequestPayload;
+use agentic_core::types::io::InOutItem;
 use agentic_core::types::io::{CompactionItem, InputItem, ResponsesInput};
 use agentic_core::types::tools::ResponsesTool;
 use agentic_server::app::{AppState, DEFAULT_MAX_REQUEST_BODY_SIZE, WebSocketTracker};
@@ -755,7 +754,7 @@ mod steering {
             let mut steering: RequestPayload = deserialize_from_value(json!({
                 "model":"test-model", "input":steering_input}))
             .unwrap();
-            steering.input = ResponsesInput::Items(steering.input.into_canonical_items());
+            steering.input = ResponsesInput::from(steering.input.into_canonical_items());
             let expected = serialize_to_value(&steering.to_upstream_request(true).unwrap().input).unwrap();
             let expected = expected.as_array().unwrap();
             assert!(
@@ -7445,7 +7444,7 @@ mod duplex_replay {
         let mut request: RequestPayload = deserialize_from_value(json!({
             "model":"synthetic-model", "input":[]}))
         .unwrap();
-        request.input = ResponsesInput::Items(input.into_canonical_items());
+        request.input = ResponsesInput::from(input.into_canonical_items());
         // to_upstream_request invokes the existing crate-private
         // ResponsesInput::normalized_model_input, including image defaults.
         let upstream = request.to_upstream_request(true).unwrap();
@@ -7642,7 +7641,7 @@ mod duplex_replay {
                                 .unwrap_or_default();
                             if let ResponsesInput::Items(items) = &profile.input {
                                 for item in items {
-                                    if let InputItem::ToolSearchOutput(output) = item {
+                                    if let InOutItem::Input(InputItem::ToolSearchOutput(output)) = item {
                                         loaded_tools.extend(output.tools.clone());
                                     }
                                 }

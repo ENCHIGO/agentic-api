@@ -224,7 +224,6 @@ fn add_input_item(estimate: &mut InputTokenEstimate, item: &InputItem) {
         InputItem::MultiAgentCall(_)
         | InputItem::MultiAgentCallOutput(_)
         | InputItem::AgentMessage(_)
-        | InputItem::Unknown
         | InputItem::McpListTools(_)
         | InputItem::CompactionTrigger => {}
     }
@@ -244,7 +243,7 @@ pub(crate) fn estimate_input_tokens(input: &ResponsesInput) -> u64 {
             estimate.add_text(text);
             estimate.total_tokens()
         }
-        ResponsesInput::Items(items) => estimate_history_tokens(items),
+        ResponsesInput::Items(_) => estimate_history_tokens(&input.to_replay_inputs()),
     }
 }
 

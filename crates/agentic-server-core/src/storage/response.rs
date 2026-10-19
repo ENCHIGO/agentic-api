@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use super::models::{item, response};
 use super::pool::DbPool;
-use super::types::{InOutItem, ResponseData, ResponseMetadata, StorageError, StoreResult};
+use super::types::{ResponseData, ResponseMetadata, StorageError, StoreResult};
+use crate::types::io::InOutItem;
 use crate::utils::common::serialize_to_string;
 
 /// Response storage operations.

@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::storage::InOutItem;
+use crate::types::io::InOutItem;
 use crate::types::io::input::{async_records, open_async_call_ids, retained_async_call};
 use crate::types::io::{InputItem, OutputItem};
 
@@ -84,13 +84,20 @@ impl<'a> CompactionCarryOver<'a> {
 }
 
 /// The request's own items a compaction stores again (see [`CompactionCarryOver::stored`]).
-pub(super) struct StoredCarryOver {
+pub(crate) struct StoredCarryOver {
     /// Late outputs and the request's own answered async records, in request order.
     answered: Vec<InputItem>,
     own_open_calls: Vec<InputItem>,
 }
 
 impl StoredCarryOver {
+    /// Select the request's own async records from shared public history.
+    pub(crate) fn from_history(items: &[InOutItem], own_items: &[InOutItem]) -> Self {
+        let items = InOutItem::to_replay_inputs(items);
+        let own_items = InOutItem::to_replay_inputs(own_items);
+        CompactionCarryOver::new(&items, &own_items, &[]).stored()
+    }
+
     /// The stored window: `compacted`, which ends with its compaction item (and, for multi-agent
     /// compaction, MCP discovery records), with the answered records before that item, so an
     /// answered call and its output leave the window together, and the request's own open calls
@@ -105,7 +112,7 @@ impl StoredCarryOver {
         compacted
     }
 
-    pub(super) fn into_inputs(self) -> Vec<InputItem> {
+    pub(crate) fn into_inputs(self) -> Vec<InputItem> {
         let mut items = self.answered;
         items.extend(self.own_open_calls);
         items
@@ -130,12 +137,6 @@ pub(super) fn public_calls(history: Vec<InOutItem>, call_ids: &HashSet<&str>) ->
             Some((call_id, public))
         })
         .collect()
-}
-
-/// The items a `compaction_trigger` turn stores again before its compaction output: the request's
-/// late outputs and answered async records, then its own open async calls.
-pub(crate) fn carried_over_inputs(items: &[InputItem], own_items: &[InputItem]) -> Vec<InputItem> {
-    CompactionCarryOver::new(items, own_items, &[]).stored().into_inputs()
 }
 
 #[cfg(test)]

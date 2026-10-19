@@ -1,6 +1,7 @@
 // Feature-gated OpenAPI spec assembly and Swagger UI router.
 #![cfg(feature = "openapi")]
 
+use agentic_core::types::io::InOutItem;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -173,7 +174,7 @@ use utoipa::OpenApi;
         agentic_core::types::conversations::CreateItemRequest,
         agentic_core::types::conversations::ItemResponse,
         agentic_core::types::conversations::ListItemsResponse,
-        agentic_core::types::conversations::ConversationItem,
+        InOutItem,
         agentic_core::types::conversations::ItemOrder,
     )),
     modifiers(&SecurityAddon),

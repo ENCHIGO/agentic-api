@@ -23,8 +23,7 @@ impl InputItem {
             Self::FunctionCallOutput(_)
             | Self::ToolSearchOutput(_)
             | Self::CustomToolCallOutput(_)
-            | Self::CompactionTrigger
-            | Self::Unknown => None,
+            | Self::CompactionTrigger => None,
         }
     }
 
@@ -49,8 +48,7 @@ impl InputItem {
             | Self::FunctionCallOutput(_)
             | Self::ToolSearchOutput(_)
             | Self::CustomToolCallOutput(_)
-            | Self::CompactionTrigger
-            | Self::Unknown => None,
+            | Self::CompactionTrigger => None,
         }
     }
 }

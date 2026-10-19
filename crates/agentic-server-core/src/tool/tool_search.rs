@@ -11,8 +11,8 @@ use serde_json::{Map, Value};
 use crate::types::event::{MessageStatus, ResponseStatus};
 use crate::types::io::output::FunctionToolCall;
 use crate::types::io::{
-    FunctionTool, FunctionToolResultMessage, InputFunctionToolCall, InputItem, InputToolSearchCall, ResponsesInput,
-    ToolCallOutput, ToolChoice, ToolSearchCall, ToolSearchOutputMessage,
+    FunctionTool, FunctionToolResultMessage, InOutItem, InputFunctionToolCall, InputItem, InputToolSearchCall,
+    ResponsesInput, ToolCallOutput, ToolChoice, ToolSearchCall, ToolSearchOutputMessage,
 };
 use crate::types::request_response::RequestPayload;
 use crate::types::tools::{
@@ -360,7 +360,7 @@ impl ToolSearchState {
             active_items.extend(
                 public_items
                     .iter()
-                    .filter(|item| matches!(item, InputItem::McpListTools(_)))
+                    .filter(|item| matches!(item, InOutItem::Input(InputItem::McpListTools(_))))
                     .cloned(),
             );
         }
@@ -368,10 +368,7 @@ impl ToolSearchState {
             return Ok(Self::default());
         }
 
-        let input_items = match &active_input {
-            ResponsesInput::Text(_) => &[][..],
-            ResponsesInput::Items(items) => items.as_slice(),
-        };
+        let input_items = active_input.to_replay_inputs();
         let has_search_history = input_items
             .iter()
             .any(|item| matches!(item, InputItem::ToolSearchCall(_) | InputItem::ToolSearchOutput(_)));
@@ -1008,9 +1005,9 @@ fn prepare_history(
         current_history_position: None,
     };
 
-    for (position, item) in items.iter().enumerate() {
+    for (position, item) in items.iter().filter_map(InOutItem::as_input).enumerate() {
         definition_accumulator.current_history_position = Some(position);
-        match item {
+        match item.as_ref() {
             InputItem::ToolSearchCall(call) => {
                 private_items.push(prepare_search_call(
                     call,
@@ -1029,7 +1026,7 @@ fn prepare_history(
             }
             InputItem::FunctionCall(call) => {
                 ensure_history_call_is_available(call, &mut definition_accumulator)?;
-                private_items.push(item.clone());
+                private_items.push(item.into_owned());
             }
             InputItem::CompactionTrigger => {}
             InputItem::Message(_)
@@ -1044,8 +1041,7 @@ fn prepare_history(
             | InputItem::Compaction(_)
             | InputItem::MultiAgentCall(_)
             | InputItem::MultiAgentCallOutput(_)
-            | InputItem::AgentMessage(_)
-            | InputItem::Unknown => private_items.push(item.clone()),
+            | InputItem::AgentMessage(_) => private_items.push(item.into_owned()),
         }
     }
 
@@ -1055,7 +1051,7 @@ fn prepare_history(
         ));
     }
     *unqualified_call_positions = definition_accumulator.unqualified_call_positions;
-    Ok(ResponsesInput::Items(private_items))
+    Ok(ResponsesInput::from(private_items))
 }
 
 fn ensure_history_call_is_available(

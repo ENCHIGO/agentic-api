@@ -21,7 +21,7 @@ use std::num::NonZeroUsize;
 #[cfg(test)]
 use either::Either;
 
-use super::compaction::{carried_over_inputs, compact_items};
+use super::compaction::{StoredCarryOver, compact_items};
 use super::gateway::{
     compaction_event_plans, emit_gateway_completed_events, emit_gateway_start_events, emit_response_start_events,
 };
@@ -199,7 +199,7 @@ async fn run_compaction_trigger(
         // outputs and its own open calls would be dropped with the items this turn replaces, so they
         // are stored again, before the compaction output.
         let carried = match &input {
-            ResponsesInput::Items(items) => carried_over_inputs(items, &ctx.new_input_items),
+            ResponsesInput::Items(items) => StoredCarryOver::from_history(items, &ctx.new_input_items).into_inputs(),
             ResponsesInput::Text(_) => Vec::new(),
         };
         let (mut compacted, usage, service_tier) = compact_items(&ctx.enriched_request, input, exec_ctx, auth).await?;
@@ -207,7 +207,7 @@ async fn run_compaction_trigger(
             unreachable!("compact_items always appends a compaction item");
         };
         compacted.extend(carried);
-        ctx.new_input_items = compacted;
+        ctx.new_input_items = compacted.into_iter().map(Into::into).collect();
         if let Some(continuation) = &mut ctx.continuation {
             continuation.mark_history_replaced();
         }
@@ -292,8 +292,9 @@ pub async fn create_conversation(exec_ctx: &ExecutionContext) -> ExecutorResult<
 mod tests {
     use super::*;
     use crate::executor::modes::{ConversationHandler, ResponseHandler};
-    use crate::storage::{ConversationStore, InOutItem, ResponseStore, create_pool_with_schema};
+    use crate::storage::{ConversationStore, ResponseStore, create_pool_with_schema};
     use crate::tool::{GatewayExecutorRegistration, McpDiscoveredHandler, McpHandler};
+    use crate::types::io::InOutItem;
     use crate::types::tools::{McpDiscoveredToolParam, ResponsesTool};
     use futures::StreamExt;
     use std::sync::Arc;
@@ -763,7 +764,7 @@ mod tests {
         assert!(matches!(history[0], InOutItem::Input(InputItem::Message(_))));
         assert!(matches!(history[1], InOutItem::Output(OutputItem::Compaction(_))));
 
-        let model_input = ResponsesInput::Items(InOutItem::into_input_items(history));
+        let model_input = ResponsesInput::from(InOutItem::into_input_items(history));
         let serialized = serde_json::to_value(model_input.model_input()).expect("model input serializes");
         assert_eq!(serialized.as_array().map(Vec::len), Some(2));
         assert_eq!(serialized[0]["content"][0]["text"], "remember banana");
