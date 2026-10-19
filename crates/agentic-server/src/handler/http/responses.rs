@@ -180,3 +180,45 @@ pub async fn delete_response(State(state): State<AppState>, Path(response_id): P
         Err(error) => executor_error_response(error),
     }
 }
+
+/// List the input items of a locally persisted response.
+///
+/// The list is the full context the response was generated from — items inherited
+/// through `previous_response_id` or its conversation, then this turn's input —
+/// without the response's own output.
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/v1/responses/{response_id}/input_items",
+    params(
+        ("response_id" = String, Path, description = "Stored response ID"),
+        super::conversation_items::ListItemsQuery
+    ),
+    responses(
+        (status = 200, description = "Input items", body = agentic_core::types::ListItemsResponse),
+        (status = 400, description = "Invalid pagination parameters", body = crate::openapi::ApiErrorResponse),
+        (status = 401, description = "Missing or invalid bearer token", body = crate::openapi::ApiErrorResponse),
+        (status = 404, description = "Response not found", body = crate::openapi::ApiErrorResponse),
+        (status = 409, description = "Legacy response has no retrievable payload", body = crate::openapi::ApiErrorResponse),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "responses",
+))]
+pub async fn list_input_items(
+    State(state): State<AppState>,
+    Path(response_id): Path<String>,
+    axum::extract::Query(query): axum::extract::Query<super::conversation_items::ListItemsQuery>,
+) -> Response {
+    let order = match query.validate() {
+        Ok(order) => order,
+        Err(error) => return *error,
+    };
+    match state
+        .exec_ctx
+        .resp_handler
+        .list_input_items(&response_id, query.limit, query.after.as_deref(), order)
+        .await
+    {
+        Ok(page) => axum::Json(page).into_response(),
+        Err(error) => executor_error_response(error),
+    }
+}

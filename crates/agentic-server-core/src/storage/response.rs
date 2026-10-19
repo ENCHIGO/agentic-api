@@ -84,28 +84,36 @@ impl ResponseStore {
     /// Returns an error if a history item is missing or invalid, the database query
     /// fails, or the store is disabled.
     pub async fn rehydrate(&self, response_id: &str) -> StoreResult<Vec<InOutItem>> {
-        let pool = self.pool()?;
         let response = self.get(response_id).await?;
-        let rows = item::get_items(pool, &response.history_item_ids).await?;
-        let mut items_by_id: HashMap<String, InOutItem> = rows
-            .into_iter()
-            .map(|row| {
-                let item = InOutItem::try_from(&row)?;
-                Ok((row.id, item))
-            })
-            .collect::<StoreResult<_>>()?;
+        self.history_rows(&response)
+            .await?
+            .iter()
+            .map(InOutItem::try_from)
+            .collect()
+    }
 
-        let ordered_items = response
+    /// Loads the stored rows of a response's history, oldest first.
+    ///
+    /// The history is the full context recorded when the response was stored:
+    /// items inherited through `previous_response_id` or its conversation, this
+    /// turn's input, and this turn's output.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a history item is missing, the database query fails,
+    /// or the store is disabled.
+    pub(crate) async fn history_rows(&self, response: &ResponseData) -> StoreResult<Vec<item::Item>> {
+        let rows = item::get_items(self.pool()?, &response.history_item_ids).await?;
+        let mut rows_by_id: HashMap<String, item::Item> = rows.into_iter().map(|row| (row.id.clone(), row)).collect();
+        response
             .history_item_ids
             .iter()
             .map(|id| {
-                items_by_id
+                rows_by_id
                     .remove(id)
                     .ok_or_else(|| StorageError::InvalidHistoryItem { item_id: id.clone() })
             })
-            .collect::<StoreResult<_>>()?;
-
-        Ok(ordered_items)
+            .collect()
     }
 
     /// Persists a response with its items and metadata.

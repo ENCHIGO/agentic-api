@@ -24,6 +24,7 @@ use utoipa::OpenApi;
         crate::handler::http::responses::responses,
         crate::handler::http::responses::retrieve_response,
         crate::handler::http::responses::delete_response,
+        crate::handler::http::responses::list_input_items,
         crate::handler::http::responses::compact_response,
         crate::handler::http::conversations::create_conversation,
         crate::handler::http::conversations::retrieve_conversation,

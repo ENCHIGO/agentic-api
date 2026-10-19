@@ -436,6 +436,27 @@ history-only APIs, return `409`. Request-scoped MCP credentials are stripped
 before storage. When OIDC is disabled and `OPENAI_API_KEY` is nonempty, callers
 must send that key as a bearer token.
 
+### `DELETE /v1/responses/{response_id}`
+
+Deletes a stored response and returns
+`{"id": "<response_id>", "object": "response", "deleted": true}`. Later
+retrieval returns `404`, and a new request naming the deleted ID as
+`previous_response_id` is rejected. Responses created from it stay retrievable
+and can still be continued: each stored response keeps its own complete
+history. Items are not removed, because one item can belong to the history of
+many responses. Unknown IDs return `404`. Authentication matches retrieval.
+
+### `GET /v1/responses/{response_id}/input_items`
+
+Lists the context a stored response was generated from: items inherited through
+`previous_response_id` or its conversation (including earlier turns' outputs),
+followed by that turn's input. The response's own output is not included. A
+conversation turn lists the conversation as it was at that turn, not as it is
+now. Pagination matches conversation item listing: `limit` (1–100, default 20),
+`order` (`desc` by default), and `after` (the ID of the last item on the
+previous page, `404` if unknown). Unknown IDs return `404`, and records without
+a stored response snapshot return `409`. Authentication matches retrieval.
+
 ### `POST /v1/responses/compact`
 
 Compacts direct input or a stored previous-response chain into a canonical

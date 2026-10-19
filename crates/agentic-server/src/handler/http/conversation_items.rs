@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 #[cfg(feature = "openapi")]
 use agentic_core::types::ConversationResponse;
+use agentic_core::types::conversations::ItemOrder;
 use agentic_core::types::{CreateItemRequest, ItemResponse, ListItemsResponse};
 
 use super::super::common::{error_response, executor_error_response, extract_json, read_bytes};
@@ -31,6 +32,38 @@ pub struct ListItemsQuery {
     /// Optional output expansion, encoded as `include[]=value` by `OpenAI` clients.
     #[serde(alias = "include[]")]
     pub include: Option<String>,
+}
+
+impl ListItemsQuery {
+    /// Validate the parameters shared by every item listing, returning the order.
+    ///
+    /// # Errors
+    /// Returns a 400 response for an out-of-range limit, an unknown order, or an
+    /// include expansion that stored items cannot serve.
+    pub(super) fn validate(&self) -> Result<ItemOrder, Box<Response>> {
+        let message = if self.limit < 1 || self.limit > 100 {
+            "limit must be between 1 and 100"
+        } else if self.order != "asc" && self.order != "desc" {
+            "order must be 'asc' or 'desc'"
+        } else if self
+            .include
+            .as_deref()
+            // Text output logprobs are already present in stored message items. Other
+            // include expansions need their own data sources before they can be served.
+            .is_some_and(|value| value != "message.output_text.logprobs")
+        {
+            "unsupported include value"
+        } else if self.order == "asc" {
+            return Ok(ItemOrder::Asc);
+        } else {
+            return Ok(ItemOrder::Desc);
+        };
+        Err(Box::new(error_response(
+            StatusCode::BAD_REQUEST,
+            "invalid_request",
+            message,
+        )))
+    }
 }
 
 fn default_limit() -> i64 {
@@ -102,32 +135,8 @@ pub async fn list_items(
     Path(conversation_id): Path<String>,
     Query(query): Query<ListItemsQuery>,
 ) -> Response {
-    // Validate limit parameter
-    if query.limit < 1 || query.limit > 100 {
-        return error_response(
-            StatusCode::BAD_REQUEST,
-            "invalid_request",
-            "limit must be between 1 and 100",
-        );
-    }
-
-    // Validate order parameter
-    if query.order != "asc" && query.order != "desc" {
-        return error_response(
-            StatusCode::BAD_REQUEST,
-            "invalid_request",
-            "order must be 'asc' or 'desc'",
-        );
-    }
-
-    // Text output logprobs are already present in stored message items. Other
-    // include expansions need their own data sources before they can be served.
-    if query
-        .include
-        .as_deref()
-        .is_some_and(|value| value != "message.output_text.logprobs")
-    {
-        return error_response(StatusCode::BAD_REQUEST, "invalid_request", "unsupported include value");
+    if let Err(error) = query.validate() {
+        return *error;
     }
 
     match state
