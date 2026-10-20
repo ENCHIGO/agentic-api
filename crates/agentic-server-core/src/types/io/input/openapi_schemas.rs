@@ -38,7 +38,7 @@ impl utoipa::PartialSchema for ResponsesInput {
     fn schema() -> RefOr<Schema> {
         OneOfBuilder::new()
             .item(string_schema())
-            .item(ArrayBuilder::new().items(Ref::from_schema_name("InputItem")))
+            .item(ArrayBuilder::new().items(Ref::from_schema_name("InOutItem")))
             .into()
     }
 }

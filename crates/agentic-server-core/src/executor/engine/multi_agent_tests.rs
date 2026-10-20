@@ -478,7 +478,7 @@ async fn concurrent_children_pause_and_resume_from_durable_tree_json_and_sse() {
                 store: true,
                 stream,
                 previous_response_id: Some(first.id.clone()),
-                input: ResponsesInput::Items(
+                input: ResponsesInput::from(
                     calls
                         .iter()
                         .map(|call| {
@@ -487,7 +487,7 @@ async fn concurrent_children_pause_and_resume_from_durable_tree_json_and_sse() {
                                 output: ToolCallOutput::Text("proposal details".into()),
                             })
                         })
-                        .collect(),
+                        .collect::<Vec<_>>(),
                 ),
                 ..Default::default()
             };

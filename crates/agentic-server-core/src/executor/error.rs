@@ -3,8 +3,9 @@ use thiserror::Error;
 
 use crate::StorageError;
 use crate::tool::ToolError;
+use crate::types::io::input::InputValidationError;
 use crate::types::request_response::{
-    MAX_TOOL_CALLS_PARAM, MaxToolCallsError, PromptCacheOptionsError, UnsupportedParameterError,
+    MAX_TOOL_CALLS_PARAM, MaxToolCallsError, PromptCacheOptionsError, UnsupportedParameterError, UpstreamRequestError,
 };
 use crate::utils::common::serialize_to_vec_or_default;
 
@@ -110,6 +111,9 @@ pub enum ExecutorError {
     #[error("invalid request: {0}")]
     InvalidRequest(String),
 
+    #[error("invalid request: {0}")]
+    InvalidInput(#[from] InputValidationError),
+
     /// The request's `max_tool_calls` is not an integer of at least one.
     #[error(transparent)]
     InvalidMaxToolCalls(#[from] MaxToolCallsError),
@@ -141,6 +145,15 @@ pub enum ExecutorError {
 
     #[error("tool error: {0}")]
     Tool(#[from] ToolError),
+}
+
+impl From<UpstreamRequestError> for ExecutorError {
+    fn from(error: UpstreamRequestError) -> Self {
+        match error {
+            UpstreamRequestError::Input(error) => error.into(),
+            UpstreamRequestError::Tool(error) => error.into(),
+        }
+    }
 }
 
 impl ExecutorError {
@@ -181,6 +194,7 @@ impl ExecutorError {
                 | ToolError::UnknownParameter { .. },
             )
             | Self::InvalidRequest(_)
+            | Self::InvalidInput(_)
             | Self::InvalidPromptCacheOptions(_)
             | Self::InvalidMaxToolCalls(_)
             | Self::UnsupportedValue { .. }
@@ -216,6 +230,7 @@ impl ExecutorError {
                 | ToolError::UnknownParameter { .. },
             )
             | Self::InvalidRequest(_)
+            | Self::InvalidInput(_)
             | Self::InvalidPromptCacheOptions(_)
             | Self::InvalidMaxToolCalls(_)
             | Self::UnsupportedValue { .. }

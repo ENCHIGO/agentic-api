@@ -9,7 +9,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use agentic_core::executor::ExecuteRequest;
-use agentic_core::storage::{InOutItem, ResponseStore};
+use agentic_core::storage::ResponseStore;
+use agentic_core::types::io::InOutItem;
 use agentic_core::types::request_response::ResponsePayload;
 use serde_json::{Value, json};
 use support::{TestFixture, collect_stream, expected_text, load_cassette, make_request, unwrap_blocking};

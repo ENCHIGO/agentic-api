@@ -23,9 +23,8 @@ use tokio_util::sync::CancellationToken;
 
 use agentic_core::executor::{ConversationHandler, ExecutionContext, ResponseHandler};
 use agentic_core::proxy::ProxyState;
-use agentic_core::storage::{
-    ConversationStore, DbPool, InOutItem, ResponseMetadata, ResponseStore, create_pool_with_schema,
-};
+use agentic_core::storage::{ConversationStore, DbPool, ResponseMetadata, ResponseStore, create_pool_with_schema};
+use agentic_core::types::io::InOutItem;
 use agentic_core::types::io::{InputItem, ResponsesInput};
 use agentic_server::app::{AppState, DEFAULT_MAX_REQUEST_BODY_SIZE, WebSocketTracker};
 
@@ -1160,39 +1159,37 @@ async fn test_invalid_json_is_rejected_before_upstream() {
 
 #[tokio::test]
 async fn test_unsupported_input_item_is_rejected_before_upstream() {
-    for store in [true, false] {
-        let (llm_url, requests, _llm) = spawn_mock_vllm_json_capture_bytes().await;
-        let (gateway_url, _gateway) = spawn_gateway(test_state(&test_config(&llm_url))).await;
+    let (llm_url, requests, _llm) = spawn_mock_vllm_json_capture_bytes().await;
+    let (gateway_url, _gateway) = spawn_gateway(test_state(&test_config(&llm_url))).await;
+    let client = reqwest::Client::new();
 
-        let response = reqwest::Client::new()
-            .post(format!("{gateway_url}/v1/responses"))
-            .header("Content-Type", "application/json")
-            .body(
-                serde_json::json!({
+    for store in [false, true] {
+        for stream in [false, true] {
+            let response = client
+                .post(format!("{gateway_url}/v1/responses"))
+                .json(&serde_json::json!({
                     "model": "test",
                     "store": store,
+                    "stream": stream,
                     "input": [
                         {"role": "user", "content": "hi"},
                         {"type": "computer_call", "id": "cu_1", "call_id": "call_1", "action": {"type": "click"}}
                     ]
-                })
-                .to_string(),
-            )
-            .send()
-            .await
-            .expect("unsupported input request");
+                }))
+                .send()
+                .await
+                .expect("unsupported input request");
 
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        let body: serde_json::Value = response.json().await.expect("error envelope");
-        assert_eq!(body["error"]["type"], "invalid_request_error");
-        assert!(body["error"].get("param").is_none(), "request shape, not a parameter");
-        let message = body["error"]["message"].as_str().expect("error message");
-        assert!(!message.is_empty(), "the boundary reports why the body was rejected");
-        assert!(
-            requests.lock().await.is_empty(),
-            "rejected before reaching upstream (store={store})"
-        );
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            let body: serde_json::Value = response.json().await.expect("error envelope");
+            assert_eq!(body["error"]["code"], "invalid_request_error");
+            assert_eq!(body["error"]["type"], "invalid_request_error");
+            assert!(body["error"].get("param").is_none(), "request shape, not a parameter");
+            let message = body["error"]["message"].as_str().expect("error message");
+            assert!(!message.is_empty(), "the boundary reports why the body was rejected");
+        }
     }
+    assert!(requests.lock().await.is_empty(), "rejected before reaching upstream");
 }
 
 #[tokio::test]

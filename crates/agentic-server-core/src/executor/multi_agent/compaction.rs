@@ -114,7 +114,7 @@ impl CompactionPlan {
             ..Default::default()
         };
         let (mut replacement, usage, service_tier) =
-            compact_items(&request, ResponsesInput::Items(self.prefix), exec, auth).await?;
+            compact_items(&request, ResponsesInput::from(self.prefix), exec, auth).await?;
         let at = replacement
             .iter()
             .rposition(|item| matches!(item, InputItem::Compaction(_)))

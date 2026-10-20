@@ -10,8 +10,9 @@ use std::time::Duration;
 
 use agentic_core::executor::{ConversationHandler, ExecutionContext, ResponseHandler};
 use agentic_core::storage::pool::DbPool;
-use agentic_core::storage::{ConversationStore, InOutItem, ResponseMetadata, ResponseStore, create_pool_with_schema};
+use agentic_core::storage::{ConversationStore, ResponseMetadata, ResponseStore, create_pool_with_schema};
 use agentic_core::types::RequestPayload;
+use agentic_core::types::io::InOutItem;
 use axum::Router;
 use axum::body::Bytes;
 use axum::response::IntoResponse;
@@ -609,6 +610,13 @@ fn composed_upstream_request_cannot_bypass_file_validation() {
     use agentic_core::executor::{RequestContext, upstream_request};
     let request: RequestPayload =
         serde_json::from_value(json!({"model":"test-model", "input":user_input(&file_part())})).unwrap();
+    for stream in [false, true] {
+        let error = request
+            .to_upstream_request(stream)
+            .expect_err("typed construction validates input");
+        assert!(error.to_string().contains("input[0].content[1]"));
+        assert!(error.to_string().contains("input_file"));
+    }
     let ctx = RequestContext {
         multi_agent_tree: None,
         original_request: request.clone(),

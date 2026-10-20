@@ -540,8 +540,8 @@ mod tests {
     use crate::executor::relay::{RelayLimits, StreamRelay};
     use crate::types::io::output::{FunctionToolCall, McpListTool, McpListTools};
     use crate::types::io::{
-        CodeInterpreterCall, CodeInterpreterCallOutput, CodeInterpreterCallStatus, CompactionItem, InputItem,
-        McpCallStatus,
+        CodeInterpreterCall, CodeInterpreterCallOutput, CodeInterpreterCallStatus, CompactionItem, InOutItem,
+        InputItem, McpCallStatus,
     };
     use tokio::sync::{Notify, Semaphore, mpsc};
 
@@ -1610,8 +1610,7 @@ mod tests {
 
         // Emitting SSE frames must not turn the typed gateway projection into
         // an upstream-native call when the response is stored for continuation.
-        let stored = String::try_from(&crate::storage::InOutItem::Output(final_item))
-            .expect("store streamed gateway projection");
+        let stored = String::try_from(&InOutItem::Output(final_item)).expect("store streamed gateway projection");
         let item = crate::storage::models::item::Item {
             id: "ci_1".to_owned(),
             reference_id: None,
@@ -1623,7 +1622,7 @@ mod tests {
             tenant_id: None,
         };
         let history = vec![item.as_inout().expect("rehydrate streamed projection")];
-        assert!(crate::storage::InOutItem::into_input_items(history).is_empty());
+        assert!(InOutItem::into_input_items(history).is_empty());
         let public = serde_json::to_value(item.as_output().expect("public output")).expect("serialize public item");
         assert!(public.get("_agentic_code_interpreter_origin").is_none());
     }

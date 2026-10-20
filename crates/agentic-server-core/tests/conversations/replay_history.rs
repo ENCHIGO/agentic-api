@@ -1,5 +1,6 @@
 use super::{IdPairs, TestFixture, Turn, Value, remap_ids, response_fields};
-use agentic_core::storage::{ConversationStore, InOutItem, ResponseStore};
+use agentic_core::storage::{ConversationStore, ResponseStore};
+use agentic_core::types::io::InOutItem;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;

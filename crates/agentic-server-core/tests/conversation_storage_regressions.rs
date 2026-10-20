@@ -4,8 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use agentic_core::storage::models::item as item_model;
-use agentic_core::storage::{ConversationStore, InOutItem, ResponseMetadata, ResponseStore, create_pool_with_schema};
+use agentic_core::storage::{ConversationStore, ResponseMetadata, ResponseStore, create_pool_with_schema};
 use agentic_core::types::conversations::ItemOrder;
+use agentic_core::types::io::InOutItem;
 use serde_json::json;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);

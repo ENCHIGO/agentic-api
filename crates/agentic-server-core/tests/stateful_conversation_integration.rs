@@ -7,7 +7,8 @@
 mod support;
 
 use agentic_core::executor::{create_conversation, execute};
-use agentic_core::storage::{ConversationStore, InOutItem};
+use agentic_core::storage::ConversationStore;
+use agentic_core::types::io::InOutItem;
 use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::sync::Arc;

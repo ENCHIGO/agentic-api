@@ -11,6 +11,8 @@
 //! does not change a call already made.
 
 use indexmap::IndexMap;
+#[cfg(test)]
+use std::borrow::Cow;
 
 use super::{ExecutorError, ExecutorResult};
 use crate::tool::{ToolError, shell::SHELL_FUNCTION_NAME};
@@ -596,18 +598,17 @@ mod tests {
                         if output_type == "tool_search_output" {
                             expected["execution"] = serde_json::json!("client");
                         }
-                        let input = ResponsesInput::Items(vec![deserialize_from_value(item.clone()).unwrap()]);
+                        let input =
+                            ResponsesInput::from(vec![deserialize_from_value::<InputItem>(item.clone()).unwrap()]);
                         let normalized = input.normalized_model_input();
                         for history in [&input, normalized.as_ref()] {
-                            let ResponsesInput::Items(items) = history else {
-                                unreachable!()
-                            };
-                            let required = pending_calls(items)
-                                .unwrap()
-                                .pop()
-                                .unwrap()
-                                .into_steering_required_input(&tools)
-                                .unwrap();
+                            let required =
+                                pending_calls(&history.input_items().map(Cow::into_owned).collect::<Vec<_>>())
+                                    .unwrap()
+                                    .pop()
+                                    .unwrap()
+                                    .into_steering_required_input(&tools)
+                                    .unwrap();
                             assert_eq!(
                                 serialize_to_value(&required).unwrap(),
                                 expected,

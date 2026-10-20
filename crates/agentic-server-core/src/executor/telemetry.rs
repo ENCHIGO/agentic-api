@@ -201,6 +201,7 @@ impl From<&ExecutorError> for FailureCategory {
             ExecutorError::StreamError(_) => Self::Stream,
             ExecutorError::NotFound { .. } | ExecutorError::PreviousResponseNotFound { .. } => Self::NotFound,
             ExecutorError::InvalidRequest(_)
+            | ExecutorError::InvalidInput(_)
             | ExecutorError::InvalidMaxToolCalls(_)
             | ExecutorError::InvalidPromptCacheOptions(_)
             | ExecutorError::UnsupportedValue { .. }
