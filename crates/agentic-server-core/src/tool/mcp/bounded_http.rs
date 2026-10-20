@@ -94,6 +94,9 @@ impl StreamableHttpClient for BoundedMcpHttpClient {
             request = request.bearer_auth(auth_token);
         }
         request = apply_custom_headers(request, custom_headers)?;
+        for (name, value) in propagation_headers(&message) {
+            request = request.header(name, value);
+        }
         let session_was_attached = session_id.is_some();
         if let Some(session_id) = session_id {
             request = request.header(HEADER_SESSION_ID, session_id.as_ref());
@@ -165,6 +168,26 @@ impl StreamableHttpClient for BoundedMcpHttpClient {
 
 fn accept_header() -> String {
     [EVENT_STREAM_MIME_TYPE, JSON_MIME_TYPE].join(", ")
+}
+
+/// Trace context the caller placed in a `tools/call` request's `_meta`, as headers.
+///
+/// The request is sent from the connection's transport task, which does not run
+/// inside the calling span, so the message is the only place the context survives.
+fn propagation_headers(message: &ClientJsonRpcMessage) -> Vec<(&'static str, String)> {
+    let JsonRpcMessage::Request(request) = message else {
+        return Vec::new();
+    };
+    let rmcp::model::ClientRequest::CallToolRequest(call) = &request.request else {
+        return Vec::new();
+    };
+    let Some(meta) = call.params.meta.as_ref() else {
+        return Vec::new();
+    };
+    crate::executor::telemetry::stages::MCP_META_PROPAGATION_FIELDS
+        .into_iter()
+        .filter_map(|field| Some((field, meta.0.get(field)?.as_str()?.to_owned())))
+        .collect()
 }
 
 fn apply_custom_headers(

@@ -292,6 +292,11 @@ impl McpClient {
 
         let mut params = CallToolRequestParams::new(name.to_owned());
         params.arguments = arguments;
+        let mut meta = rmcp::model::Meta::new();
+        crate::executor::telemetry::stages::inject_context_into_meta(&mut meta.0);
+        if !meta.0.is_empty() {
+            params.meta = Some(meta);
+        }
 
         let result = tokio::time::timeout(self.tool_timeout, async {
             self.inner
