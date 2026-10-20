@@ -123,7 +123,7 @@ impl Item {
         }
 
         let input = self.as_input();
-        if input.as_ref().is_some_and(|item| !matches!(item, InputItem::Unknown)) {
+        if input.is_some() {
             return input.map(InOutItem::Input);
         }
 
