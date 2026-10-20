@@ -106,6 +106,8 @@ impl ClientHandler for AgenticMcpClientHandler {
 pub struct McpClient {
     inner: Arc<RunningService<RoleClient, AgenticMcpClientHandler>>,
     tool_timeout: Duration,
+    /// Whether `tools/call` carries the caller's trace context and baggage.
+    propagate_trace_context: bool,
 }
 
 impl McpClient {
@@ -148,6 +150,7 @@ impl McpClient {
         Ok(Self {
             inner: Arc::new(service),
             tool_timeout: TOOL_TIMEOUT,
+            propagate_trace_context: false,
         })
     }
 
@@ -216,7 +219,19 @@ impl McpClient {
         Ok(Self {
             inner: Arc::new(service),
             tool_timeout: TOOL_TIMEOUT,
+            propagate_trace_context: false,
         })
+    }
+
+    /// Send the caller's trace context and baggage with every `tools/call`.
+    ///
+    /// Off by default. Baggage can hold values an operator's edge added to the
+    /// inbound request, so only servers the operator configured are trusted with
+    /// it; a server URL supplied in a request may belong to anyone.
+    #[must_use]
+    pub fn with_trace_context_propagation(mut self) -> Self {
+        self.propagate_trace_context = true;
+        self
     }
 
     /// Lists all tools exposed by the connected MCP server, following cursor-based pagination.
@@ -292,10 +307,12 @@ impl McpClient {
 
         let mut params = CallToolRequestParams::new(name.to_owned());
         params.arguments = arguments;
-        let mut meta = rmcp::model::Meta::new();
-        crate::executor::telemetry::stages::inject_context_into_meta(&mut meta.0);
-        if !meta.0.is_empty() {
-            params.meta = Some(meta);
+        if self.propagate_trace_context {
+            let mut meta = rmcp::model::Meta::new();
+            crate::executor::telemetry::stages::inject_context_into_meta(&mut meta.0);
+            if !meta.0.is_empty() {
+                params.meta = Some(meta);
+            }
         }
 
         let result = tokio::time::timeout(self.tool_timeout, async {
