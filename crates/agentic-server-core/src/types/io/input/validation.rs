@@ -1,4 +1,9 @@
 //! Message-content validation for typed Responses execution.
+//!
+//! Also rejects plaintext `agent_message` content: hosted multi-agent orchestration
+//! publishes agent messages sealed as `encrypted_content` and keeps them out of model
+//! context, so a plaintext one comes from client-managed collaboration, which the
+//! gateway does not implement and would otherwise drop before inference.
 
 use std::fmt;
 
@@ -6,6 +11,7 @@ use thiserror::Error;
 
 use super::file_text::InputFileError;
 use super::{InputContent, InputItem, InputMessageContent, ResponsesInput};
+use crate::types::io::multi_agent::AgentMessageContent;
 use crate::types::io::{InOutItem, OutputItem};
 
 /// Invalid message content, with its position in the request history.
@@ -20,7 +26,8 @@ impl fmt::Display for InputValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "input[{}].content", self.item_index)?;
         if let MessageContentError::UnsupportedPart { part_index, .. }
-        | MessageContentError::UnsupportedFile { part_index, .. } = &self.source
+        | MessageContentError::UnsupportedFile { part_index, .. }
+        | MessageContentError::UnsealedAgentMessagePart { part_index, .. } = &self.source
         {
             write!(f, "[{part_index}]")?;
         }
@@ -49,6 +56,31 @@ enum MessageContentError {
     UnsupportedPart { part_index: usize, kind: String },
     #[error("{reason}")]
     UnsupportedFile { part_index: usize, reason: InputFileError },
+    #[error(
+        "agent_message content part type `{kind}` is not supported; agent messages are accepted only as \
+         sealed `encrypted_content` replayed from hosted multi_agent orchestration, and client-managed \
+         collaboration messages are not supported"
+    )]
+    UnsealedAgentMessagePart { part_index: usize, kind: &'static str },
+}
+
+/// Accept only the sealed form hosted orchestration publishes.
+fn validate_agent_message(content: &[AgentMessageContent]) -> Result<(), MessageContentError> {
+    content.iter().enumerate().try_for_each(|(part_index, part)| {
+        let kind = match part {
+            AgentMessageContent::EncryptedContent { .. } => return Ok(()),
+            AgentMessageContent::InputText(_) => "input_text",
+            AgentMessageContent::OutputText(_) => "output_text",
+            AgentMessageContent::Text(_) => "text",
+            AgentMessageContent::SummaryText(_) => "summary_text",
+            AgentMessageContent::ReasoningText(_) => "reasoning_text",
+            AgentMessageContent::Refusal(_) => "refusal",
+            AgentMessageContent::InputImage(_) => "input_image",
+            AgentMessageContent::ComputerScreenshot(_) => "computer_screenshot",
+            AgentMessageContent::InputFile(_) => "input_file",
+        };
+        Err(MessageContentError::UnsealedAgentMessagePart { part_index, kind })
+    })
 }
 
 impl InputMessageContent {
@@ -83,6 +115,7 @@ impl InputItem {
     fn validate(&self) -> Result<(), MessageContentError> {
         match self {
             Self::Message(message) => message.content.validate(),
+            Self::AgentMessage(message) => validate_agent_message(&message.content),
             _ => Ok(()),
         }
     }
@@ -93,6 +126,7 @@ impl InOutItem {
         match self {
             Self::Input(item) => item.validate(),
             Self::Output(OutputItem::Message(message)) if message.content.is_empty() => Err(MessageContentError::Empty),
+            Self::Output(OutputItem::AgentMessage(message)) => validate_agent_message(&message.content),
             Self::Output(_) => Ok(()),
         }
     }
@@ -108,8 +142,9 @@ impl ResponsesInput {
     ///
     /// # Errors
     /// Returns the item and content-part location of an empty message array, a
-    /// message content type the typed executor cannot convey, or a message
-    /// file that is not an inline base64 UTF-8 text file.
+    /// message content type the typed executor cannot convey, a message file
+    /// that is not an inline base64 UTF-8 text file, or plaintext `agent_message`
+    /// content.
     pub fn validate(&self) -> Result<(), InputValidationError> {
         match self {
             Self::Text(_) => Ok(()),
@@ -125,6 +160,7 @@ impl ResponsesInput {
 mod tests {
     use super::*;
     use crate::types::event::MessageStatus;
+    use crate::types::io::multi_agent::AgentMessage;
     use crate::types::io::{OutputMessage, OutputTextContent};
     use serde_json::json;
 
@@ -199,5 +235,48 @@ mod tests {
         ]))
         .unwrap();
         tool_result.validate().unwrap();
+    }
+
+    #[test]
+    fn agent_messages_are_accepted_only_sealed() {
+        let sealed = json!({"type":"agent_message", "author":"/root", "recipient":"/root/review",
+            "content":[{"type":"encrypted_content", "encrypted_content":"opaque"}]});
+        let input: ResponsesInput = serde_json::from_value(json!([{"role":"user", "content":"hi"}, sealed])).unwrap();
+        input.validate().unwrap();
+
+        // Client-managed collaboration, as Codex sends it (#405).
+        let plaintext: ResponsesInput = serde_json::from_value(json!([
+            {"role":"user", "content":"Report the board update."},
+            {"type":"agent_message", "author":"/root/worker_a", "recipient":"/root", "content":[
+                {"type":"encrypted_content", "encrypted_content":"opaque"},
+                {"type":"input_text", "text":"Message Type: CHANNEL_POST"}]}
+        ]))
+        .unwrap();
+        let error = plaintext.validate().unwrap_err();
+        assert!(matches!(
+            error.source,
+            MessageContentError::UnsealedAgentMessagePart {
+                part_index: 1,
+                kind: "input_text"
+            }
+        ));
+        assert!(
+            error
+                .to_string()
+                .starts_with("input[1].content[1]: agent_message content part type `input_text`")
+        );
+
+        // Restored history is held to the same rule.
+        let stored: AgentMessage = serde_json::from_value(json!({"id":"amsg_1", "author":"/root",
+            "recipient":"/root/review", "content":[{"type":"output_text", "text":"plain"}]}))
+        .unwrap();
+        let history = ResponsesInput::from(vec![InOutItem::Output(OutputItem::AgentMessage(stored))]);
+        assert!(matches!(
+            history.validate().unwrap_err().source,
+            MessageContentError::UnsealedAgentMessagePart {
+                kind: "output_text",
+                ..
+            }
+        ));
     }
 }

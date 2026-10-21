@@ -110,7 +110,12 @@ gateway orchestrate subagents for one response and return attributed
 `max_concurrent_subagents` defaults to 3 and must be positive. Multi-agent
 requests require `store: true`, reject `max_tool_calls` and reasoning summaries,
 and run over HTTP JSON and SSE only; the WebSocket transport rejects them.
-Continue the agent tree with `previous_response_id`. See
+Continue the agent tree with `previous_response_id`. Returned `agent_message`
+items carry their text sealed as `encrypted_content` and can be replayed as
+input; they never enter model context. An `agent_message` with any other content
+(such as the plaintext `input_text` notifications a client-managed harness
+sends) is rejected with `400` before inference, because the gateway implements
+hosted orchestration only and would otherwise drop it. See
 [HTTP multi-agent execution](https://github.com/vllm-project/agentic-api/blob/main/ARCHITECTURE.md#http-multi-agent-execution).
 
 #### Async client tools
