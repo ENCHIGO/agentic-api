@@ -12,6 +12,7 @@ use rmcp::transport::streamable_http_client::{
 use rmcp_reqwest as http_client;
 use sse_stream::{Sse, SseStream};
 
+use super::propagation::W3cPropagation;
 use crate::tool::handler::MAX_GATEWAY_TOOL_OUTPUT_BYTES;
 
 const EVENT_STREAM_MIME_TYPE: &str = "text/event-stream";
@@ -93,10 +94,9 @@ impl StreamableHttpClient for BoundedMcpHttpClient {
         if let Some(auth_token) = auth_token {
             request = request.bearer_auth(auth_token);
         }
+        let mut custom_headers = custom_headers;
+        W3cPropagation::from_message(&message).apply_to(&mut custom_headers);
         request = apply_custom_headers(request, custom_headers)?;
-        for (name, value) in propagation_headers(&message) {
-            request = request.header(name, value);
-        }
         let session_was_attached = session_id.is_some();
         if let Some(session_id) = session_id {
             request = request.header(HEADER_SESSION_ID, session_id.as_ref());
@@ -168,26 +168,6 @@ impl StreamableHttpClient for BoundedMcpHttpClient {
 
 fn accept_header() -> String {
     [EVENT_STREAM_MIME_TYPE, JSON_MIME_TYPE].join(", ")
-}
-
-/// Trace context the caller placed in a `tools/call` request's `_meta`, as headers.
-///
-/// The request is sent from the connection's transport task, which does not run
-/// inside the calling span, so the message is the only place the context survives.
-fn propagation_headers(message: &ClientJsonRpcMessage) -> Vec<(&'static str, String)> {
-    let JsonRpcMessage::Request(request) = message else {
-        return Vec::new();
-    };
-    let rmcp::model::ClientRequest::CallToolRequest(call) = &request.request else {
-        return Vec::new();
-    };
-    let Some(meta) = call.params.meta.as_ref() else {
-        return Vec::new();
-    };
-    crate::executor::telemetry::stages::MCP_META_PROPAGATION_FIELDS
-        .into_iter()
-        .filter_map(|field| Some((field, meta.0.get(field)?.as_str()?.to_owned())))
-        .collect()
 }
 
 fn apply_custom_headers(

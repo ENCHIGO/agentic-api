@@ -105,33 +105,6 @@ impl Injector for HeaderInjector<'_> {
     }
 }
 
-/// W3C propagation fields carried in an MCP request's `params._meta`.
-pub(crate) const MCP_META_PROPAGATION_FIELDS: [&str; 3] = ["traceparent", "tracestate", "baggage"];
-
-struct MetaInjector<'a>(&'a mut serde_json::Map<String, serde_json::Value>);
-
-impl Injector for MetaInjector<'_> {
-    fn set(&mut self, key: &str, value: String) {
-        self.0.insert(key.to_owned(), serde_json::Value::String(value));
-    }
-}
-
-/// Write the active gateway span's context into an MCP request's `_meta`.
-///
-/// MCP requests are sent by a transport task spawned when the pooled connection
-/// was opened, so the HTTP layer cannot read the calling span from `Span::current()`.
-/// The context travels in the message instead: stdio servers read it from `_meta`,
-/// and the HTTP transport copies it into request headers.
-pub(crate) fn inject_context_into_meta(meta: &mut serde_json::Map<String, serde_json::Value>) {
-    for field in MCP_META_PROPAGATION_FIELDS {
-        meta.remove(field);
-    }
-    let context = Span::current().context();
-    opentelemetry::global::get_text_map_propagator(|propagator| {
-        propagator.inject_context(&context, &mut MetaInjector(meta));
-    });
-}
-
 /// Replace caller context with the active gateway span, including when export is disabled.
 pub(crate) fn inject_context(headers: &mut http::HeaderMap) {
     headers.remove("traceparent");

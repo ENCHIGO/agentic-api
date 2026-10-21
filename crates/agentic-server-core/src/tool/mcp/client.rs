@@ -22,6 +22,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 use super::bounded_http::BoundedMcpHttpClient;
+use super::propagation::W3cPropagation;
 
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
 const TOOL_TIMEOUT: Duration = Duration::from_secs(60);
@@ -308,11 +309,7 @@ impl McpClient {
         let mut params = CallToolRequestParams::new(name.to_owned());
         params.arguments = arguments;
         if self.propagate_trace_context {
-            let mut meta = rmcp::model::Meta::new();
-            crate::executor::telemetry::stages::inject_context_into_meta(&mut meta.0);
-            if !meta.0.is_empty() {
-                params.meta = Some(meta);
-            }
+            params.meta = W3cPropagation::capture().into_meta();
         }
 
         let result = tokio::time::timeout(self.tool_timeout, async {
