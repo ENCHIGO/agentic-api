@@ -3,7 +3,7 @@
 use crate::storage::{
     ConversationData, ConversationSnapshot, ConversationStore, ConversationVersion, ResponseMetadata, StorageError,
 };
-use crate::types::conversations::{ConversationMetadata, ItemResponse, ListItemsResponse};
+use crate::types::conversations::{ConversationMetadata, ItemPage, ItemResponse, ListItemsResponse};
 use crate::types::io::InOutItem;
 use crate::types::io::OutputItem;
 
@@ -225,35 +225,16 @@ impl ConversationHandler {
         &self,
         tenant_id: &str,
         conversation_id: &str,
-        limit: i64,
-        after: Option<&str>,
-        order: &str,
+        page: ItemPage<'_>,
     ) -> ExecutorResult<ListItemsResponse> {
-        // Validate order parameter
-        if order != "asc" && order != "desc" {
-            return Err(ExecutorError::InvalidRequest("order must be 'asc' or 'desc'".into()));
-        }
-
-        let limit = limit.clamp(1, 100);
-        let order_enum = if order == "desc" {
-            crate::types::conversations::ItemOrder::Desc
-        } else {
-            crate::types::conversations::ItemOrder::Asc
-        };
-
-        // Fetch limit + 1 to determine if there are more items
+        // Fetch one extra item to determine if there are more items
         let mut items = self
             .store
-            .list_items(tenant_id, conversation_id, limit + 1, after, order_enum)
+            .list_items(tenant_id, conversation_id, page.limit.probe(), page.after, page.order)
             .await
             .map_err(ExecutorError::Storage)?;
-
-        // Safe: limit is clamped to [1, 100], far below usize range
-        #[allow(clippy::cast_possible_wrap)]
-        let has_more = (items.len() as i64) > limit;
-        if has_more {
-            items.pop(); // Remove the extra item
-        }
+        let has_more = items.len() > page.limit.get();
+        items.truncate(page.limit.get());
 
         // Perform fallible conversion - propagate errors instead of silently dropping items
         let mut item_responses = Vec::with_capacity(items.len());

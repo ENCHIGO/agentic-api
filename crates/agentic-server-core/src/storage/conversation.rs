@@ -205,10 +205,6 @@ impl ConversationStore {
     ) -> StoreResult<()> {
         let pool = self.pool()?;
 
-        let is_output: Vec<bool> = new_items
-            .iter()
-            .map(|item| matches!(item, InOutItem::Output(_)))
-            .collect();
         let items_ = item::serialize_new_items(new_items, item::ItemSource::ResponseHistory)?;
 
         let mut tx = pool.begin().await?;
@@ -232,8 +228,8 @@ impl ConversationStore {
                 });
             }
         }
-        let created = item::create_in_tx(&mut tx, items_, Some(conversation_id)).await?;
-        let metadata_json = metadata.to_stored_json(super::response::output_row_ids(&is_output, &created))?;
+        let written = item::create_in_tx(&mut tx, items_, Some(conversation_id)).await?;
+        let metadata_json = metadata.serialize_with_output_rows(&written)?;
         // A response branch must see the conversation as it existed at this turn,
         // including manually added items that may later be detached or deleted.
         let history_item_ids = item::ids_for_conversation_in_tx(&mut tx, conversation_id).await?;
@@ -327,7 +323,11 @@ impl ConversationStore {
         let items = item::serialize_new_items(items, item::ItemSource::ConversationApi)?;
         let mut tx = self.pool()?.begin().await?;
         lock_owned(&mut tx, tenant_id, id).await?;
-        let rows = item::create_in_tx(&mut tx, items, Some(id)).await?;
+        let rows: Vec<Item> = item::create_in_tx(&mut tx, items, Some(id))
+            .await?
+            .into_iter()
+            .map(|written| written.row)
+            .collect();
         if !rows.is_empty() {
             conversation::bump_revision_in_tx(&mut tx, id).await?;
         }

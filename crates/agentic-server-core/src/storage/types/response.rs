@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::super::models::Response as StorageDbResponse;
+use super::super::models::item::WrittenItem;
 use super::errors::StorageError;
 use crate::types::agent_tree::StoredTreeSnapshot;
 use crate::types::io::ToolChoice;
@@ -118,14 +119,19 @@ pub(in crate::storage) fn decode_metadata(
 }
 
 impl ResponseMetadata {
-    /// Serialize for one stored row, recording which written items are its own output.
+    /// Encode the metadata of a response whose items were just written, recording
+    /// the row IDs of its own output occurrences.
     ///
     /// # Errors
     /// Returns [`StorageError::Serialization`] if the metadata cannot be encoded.
-    pub(in crate::storage) fn to_stored_json(&self, output_item_ids: Vec<String>) -> Result<String, StorageError> {
-        let mut persisted = self.clone();
-        persisted.output_item_ids = Some(output_item_ids);
-        String::try_from(&persisted)
+    pub(in crate::storage) fn serialize_with_output_rows(
+        &self,
+        written: &[WrittenItem],
+    ) -> Result<String, StorageError> {
+        String::try_from(Self {
+            output_item_ids: Some(WrittenItem::output_row_ids(written)),
+            ..self.clone()
+        })
     }
 }
 
@@ -133,7 +139,15 @@ impl TryFrom<&ResponseMetadata> for String {
     type Error = StorageError;
 
     fn try_from(metadata: &ResponseMetadata) -> Result<Self, Self::Error> {
-        let mut persisted = metadata.clone();
+        Self::try_from(metadata.clone())
+    }
+}
+
+/// Sanitizes stored tool credentials in place, then encodes the metadata.
+impl TryFrom<ResponseMetadata> for String {
+    type Error = StorageError;
+
+    fn try_from(mut persisted: ResponseMetadata) -> Result<Self, Self::Error> {
         if let Some(tools) = persisted.effective_tools.as_mut() {
             for tool in tools {
                 tool.sanitize_for_persistence();

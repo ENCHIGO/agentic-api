@@ -439,7 +439,7 @@ must send that key as a bearer token.
 ### `DELETE /v1/responses/{response_id}`
 
 Deletes a stored response and returns
-`{"id": "<response_id>", "object": "response", "deleted": true}`. Later
+`{"id": "<response_id>", "object": "response.deleted", "deleted": true}`. Later
 retrieval returns `404`, and a new request naming the deleted ID as
 `previous_response_id` is rejected. Responses created from it stay retrievable
 and can still be continued: each stored response keeps its own complete
@@ -460,8 +460,17 @@ followed by that turn's input. The response's own output is not included. A
 conversation turn lists the conversation as it was at that turn, not as it is
 now. Pagination matches conversation item listing: `limit` (1–100, default 20),
 `order` (`desc` by default), and `after` (the ID of the last item on the
-previous page, `404` if unknown). Unknown IDs return `404`, and records without
-a stored response snapshot return `409`. Authentication matches retrieval.
+previous page, `404` if unknown). An item can occur more than once in a
+history; an `after` cursor naming it resumes after its last occurrence in the
+requested order, so paging always advances. `include` (repeatable, also as
+`include[]`) accepts `message.input_image.image_url`,
+`computer_call_output.output.image_url`, `reasoning.encrypted_content`, and
+`message.output_text.logprobs`, which stored items already carry; hosted tool
+results (`web_search_call.*`, `file_search_call.results`,
+`code_interpreter_call.outputs`) and unknown values return `400`, as do a
+repeated `limit`, `order`, or `after`. Conversation item listing parses its
+query the same way. Unknown IDs return `404`, and records without a stored
+response snapshot return `409`. Authentication matches retrieval.
 
 ### `POST /v1/responses/compact`
 

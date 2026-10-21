@@ -1,4 +1,4 @@
-use axum::extract::{Path, Request, State};
+use axum::extract::{Path, RawQuery, Request, State};
 use axum::http::request::Parts;
 use axum::response::{IntoResponse, Response};
 use bytes::Bytes;
@@ -17,6 +17,7 @@ use agentic_core::types::request_response::{CompactRequest, PromptCacheOptions, 
 use super::super::common::{
     convert_response, executor_error_response, extract_bearer, read_bytes, read_json, sse_response,
 };
+use super::conversation_items::ListItemsQuery;
 use crate::app::AppState;
 
 // Only executor requests interpret text and prompt-cache options. Proxy requests retain their raw body.
@@ -191,7 +192,7 @@ pub async fn delete_response(State(state): State<AppState>, Path(response_id): P
     path = "/v1/responses/{response_id}/input_items",
     params(
         ("response_id" = String, Path, description = "Stored response ID"),
-        super::conversation_items::ListItemsQuery
+        ListItemsQuery
     ),
     responses(
         (status = 200, description = "Input items", body = agentic_core::types::ListItemsResponse),
@@ -206,16 +207,16 @@ pub async fn delete_response(State(state): State<AppState>, Path(response_id): P
 pub async fn list_input_items(
     State(state): State<AppState>,
     Path(response_id): Path<String>,
-    axum::extract::Query(query): axum::extract::Query<super::conversation_items::ListItemsQuery>,
+    RawQuery(raw): RawQuery,
 ) -> Response {
-    let order = match query.validate() {
-        Ok(order) => order,
+    let query = match ListItemsQuery::parse(raw.as_deref()) {
+        Ok(query) => query,
         Err(error) => return *error,
     };
     match state
         .exec_ctx
         .resp_handler
-        .list_input_items(&response_id, query.limit, query.after.as_deref(), order)
+        .list_input_items(&response_id, query.page())
         .await
     {
         Ok(page) => axum::Json(page).into_response(),

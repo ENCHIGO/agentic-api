@@ -1,7 +1,9 @@
 //! Types for the OpenAI-compatible Conversations API.
 
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
+use serde::de::IntoDeserializer as _;
 use serde::{Deserialize, Serialize, Serializer};
 
 use super::event::MessageStatus;
@@ -129,6 +131,109 @@ pub enum ItemOrder {
     Desc,
 }
 
+/// Page size for item listings, validated once to `1..=100`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ItemLimit(u8);
+
+impl ItemLimit {
+    const MAX: u8 = 100;
+
+    /// The number of items a page holds.
+    #[must_use]
+    pub fn get(self) -> usize {
+        usize::from(self.0)
+    }
+
+    /// One more than the page size: fetching it tells whether another page follows.
+    #[must_use]
+    pub fn probe(self) -> i64 {
+        i64::from(self.0) + 1
+    }
+}
+
+impl Default for ItemLimit {
+    fn default() -> Self {
+        Self(20)
+    }
+}
+
+impl TryFrom<i64> for ItemLimit {
+    type Error = InvalidItemLimit;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        u8::try_from(value)
+            .ok()
+            .filter(|limit| (1..=Self::MAX).contains(limit))
+            .map(Self)
+            .ok_or(InvalidItemLimit)
+    }
+}
+
+/// A page size outside `1..=100`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("limit must be between 1 and 100")]
+pub struct InvalidItemLimit;
+
+/// Validated pagination for item listings.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ItemPage<'a> {
+    pub limit: ItemLimit,
+    /// Public ID of the last item on the previous page.
+    pub after: Option<&'a str>,
+    pub order: ItemOrder,
+}
+
+/// Extra item fields a listing can be asked to include, as `OpenAI` defines them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub enum ItemInclude {
+    #[serde(rename = "file_search_call.results")]
+    FileSearchCallResults,
+    #[serde(rename = "web_search_call.results")]
+    WebSearchCallResults,
+    #[serde(rename = "web_search_call.action.sources")]
+    WebSearchCallActionSources,
+    #[serde(rename = "message.input_image.image_url")]
+    MessageInputImageUrl,
+    #[serde(rename = "computer_call_output.output.image_url")]
+    ComputerCallOutputImageUrl,
+    #[serde(rename = "code_interpreter_call.outputs")]
+    CodeInterpreterCallOutputs,
+    #[serde(rename = "reasoning.encrypted_content")]
+    ReasoningEncryptedContent,
+    #[serde(rename = "message.output_text.logprobs")]
+    MessageOutputTextLogprobs,
+}
+
+impl FromStr for ItemInclude {
+    type Err = serde::de::value::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::deserialize(value.into_deserializer())
+    }
+}
+
+impl ItemInclude {
+    /// Whether stored items already carry this field.
+    ///
+    /// Stored items keep every field their item had, so expansions that read the
+    /// item itself are served as stored. Hosted tool results come from data sources
+    /// the gateway does not keep, so those expansions cannot be served.
+    #[must_use]
+    pub const fn is_stored_with_items(self) -> bool {
+        match self {
+            Self::MessageInputImageUrl
+            | Self::ComputerCallOutputImageUrl
+            | Self::ReasoningEncryptedContent
+            | Self::MessageOutputTextLogprobs => true,
+            Self::FileSearchCallResults
+            | Self::WebSearchCallResults
+            | Self::WebSearchCallActionSources
+            | Self::CodeInterpreterCallOutputs => false,
+        }
+    }
+}
+
 /// Response for successful deletion.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
@@ -204,7 +309,7 @@ impl DeletedResponse {
     pub fn response(id: String) -> Self {
         Self {
             id,
-            object: "response".to_string(),
+            object: "response.deleted".to_string(),
             deleted: true,
         }
     }

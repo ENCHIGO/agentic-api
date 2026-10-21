@@ -1,77 +1,104 @@
 //! HTTP transport for conversation item CRUD.
 
-use axum::extract::{Path, Query, Request, State};
+use std::borrow::Cow;
+
+use axum::extract::{Path, RawQuery, Request, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use serde::Deserialize;
 
 #[cfg(feature = "openapi")]
 use agentic_core::types::ConversationResponse;
-use agentic_core::types::conversations::ItemOrder;
+use agentic_core::types::conversations::{ItemInclude, ItemLimit, ItemOrder, ItemPage};
 use agentic_core::types::{CreateItemRequest, ItemResponse, ListItemsResponse};
 
 use super::super::common::{error_response, executor_error_response, extract_json, read_bytes};
 use super::conversations::{DEFAULT_TENANT_ID, conversation_response};
 use crate::app::AppState;
 
-/// Query parameters for listing conversation items.
-#[derive(Debug, Deserialize)]
+/// Query parameters for item listings.
+///
+/// Parsed from the raw query string by [`ListItemsQuery::parse`]: `include` may
+/// repeat, which form deserialization into a struct does not support.
+#[derive(Debug, Default)]
 #[cfg_attr(feature = "openapi", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "openapi", into_params(parameter_in = Query))]
 pub struct ListItemsQuery {
     /// Maximum number of items to return (default: 20, max: 100).
-    #[serde(default = "default_limit")]
-    pub limit: i64,
+    #[cfg_attr(feature = "openapi", param(value_type = Option<i64>, minimum = 1, maximum = 100))]
+    pub limit: ItemLimit,
 
     /// Cursor for pagination (item ID to start after).
     pub after: Option<String>,
 
     /// Sort order for items (default: desc). Ascending order is oldest-first.
-    #[serde(default = "default_order")]
-    pub order: String,
+    #[cfg_attr(feature = "openapi", param(value_type = Option<ItemOrder>))]
+    pub order: ItemOrder,
 
-    /// Optional output expansion, encoded as `include[]=value` by `OpenAI` clients.
-    #[serde(alias = "include[]")]
-    pub include: Option<String>,
+    /// Extra item fields to include, repeatable and also accepted as `include[]`.
+    #[cfg_attr(feature = "openapi", param(value_type = Option<Vec<ItemInclude>>))]
+    pub include: Vec<ItemInclude>,
 }
 
 impl ListItemsQuery {
-    /// Validate the parameters shared by every item listing, returning the order.
+    /// Parse and validate the parameters shared by every item listing.
+    ///
+    /// Unknown parameters are ignored, as typed query extraction does.
     ///
     /// # Errors
-    /// Returns a 400 response for an out-of-range limit, an unknown order, or an
-    /// include expansion that stored items cannot serve.
-    pub(super) fn validate(&self) -> Result<ItemOrder, Box<Response>> {
-        let message = if self.limit < 1 || self.limit > 100 {
-            "limit must be between 1 and 100"
-        } else if self.order != "asc" && self.order != "desc" {
-            "order must be 'asc' or 'desc'"
-        } else if self
-            .include
-            .as_deref()
-            // Text output logprobs are already present in stored message items. Other
-            // include expansions need their own data sources before they can be served.
-            .is_some_and(|value| value != "message.output_text.logprobs")
-        {
-            "unsupported include value"
-        } else if self.order == "asc" {
-            return Ok(ItemOrder::Asc);
-        } else {
-            return Ok(ItemOrder::Desc);
-        };
-        Err(Box::new(error_response(
-            StatusCode::BAD_REQUEST,
-            "invalid_request",
-            message,
-        )))
+    /// Returns a 400 response naming the offending parameter for a repeated
+    /// single-valued parameter, an out-of-range limit, an unknown order, or an
+    /// include value that is unknown or that stored items cannot serve.
+    pub(super) fn parse(raw: Option<&str>) -> Result<Self, Box<Response>> {
+        let invalid = |message: String| Box::new(error_response(StatusCode::BAD_REQUEST, "invalid_request", &message));
+        let mut query = Self::default();
+        let (mut limit, mut after, mut order) = (None, None, None);
+        for (key, value) in url::form_urlencoded::parse(raw.unwrap_or_default().as_bytes()) {
+            let slot = match key.as_ref() {
+                "limit" => &mut limit,
+                "after" => &mut after,
+                "order" => &mut order,
+                "include" | "include[]" => {
+                    let include = value
+                        .parse::<ItemInclude>()
+                        .map_err(|_| invalid(format!("unknown include value '{value}'")))?;
+                    if !include.is_stored_with_items() {
+                        return Err(invalid(format!("include value '{value}' is not supported")));
+                    }
+                    query.include.push(include);
+                    continue;
+                }
+                _ => continue,
+            };
+            if slot.replace(value.clone()).is_some() {
+                return Err(invalid(format!("'{key}' must be given at most once")));
+            }
+        }
+        if let Some(limit) = limit {
+            query.limit = limit
+                .parse::<i64>()
+                .ok()
+                .and_then(|limit| ItemLimit::try_from(limit).ok())
+                .ok_or_else(|| invalid("limit must be between 1 and 100".to_owned()))?;
+        }
+        if let Some(order) = order {
+            query.order = match order.as_ref() {
+                "asc" => ItemOrder::Asc,
+                "desc" => ItemOrder::Desc,
+                _ => return Err(invalid("order must be 'asc' or 'desc'".to_owned())),
+            };
+        }
+        query.after = after.map(Cow::into_owned);
+        Ok(query)
     }
-}
 
-fn default_limit() -> i64 {
-    20
-}
-
-fn default_order() -> String {
-    "desc".to_string()
+    /// The validated pagination, borrowing the cursor.
+    pub(super) fn page(&self) -> ItemPage<'_> {
+        ItemPage {
+            limit: self.limit,
+            after: self.after.as_deref(),
+            order: self.order,
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", utoipa::path(
@@ -133,22 +160,17 @@ pub async fn create_item(State(state): State<AppState>, Path(conversation_id): P
 pub async fn list_items(
     State(state): State<AppState>,
     Path(conversation_id): Path<String>,
-    Query(query): Query<ListItemsQuery>,
+    RawQuery(raw): RawQuery,
 ) -> Response {
-    if let Err(error) = query.validate() {
-        return *error;
-    }
+    let query = match ListItemsQuery::parse(raw.as_deref()) {
+        Ok(query) => query,
+        Err(error) => return *error,
+    };
 
     match state
         .exec_ctx
         .conv_handler
-        .list_items(
-            DEFAULT_TENANT_ID,
-            &conversation_id,
-            query.limit,
-            query.after.as_deref(),
-            &query.order,
-        )
+        .list_items(DEFAULT_TENANT_ID, &conversation_id, query.page())
         .await
     {
         Ok(response) => axum::Json(response).into_response(),

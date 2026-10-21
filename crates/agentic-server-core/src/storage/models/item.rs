@@ -1,7 +1,6 @@
 //! Conversation history item stored in the database.
 
 use serde_json::Value;
-use std::convert::TryFrom;
 use std::fmt::Write;
 use tracing::warn;
 
@@ -13,6 +12,9 @@ use crate::types::io::InOutItem;
 use crate::types::io::code_interpreter::CodeInterpreterCallOrigin;
 use crate::types::io::{InputItem, OutputItem, ReasoningOutput};
 use crate::utils::common::{deserialize_from_str_opt, utcnow_str, uuid7_str};
+
+pub use super::new_item::{ItemRole, NewItem, WrittenItem};
+pub(crate) use super::new_item::{ItemSource, serialize_new_items};
 
 const ITEM_COLUMN_COUNT: usize = 5;
 const SEQUENCE_COLUMN_INDEX: usize = 4;
@@ -164,49 +166,6 @@ fn item_values_clause(row_count: usize, first_bind_index: usize, sequence_from_c
     clause
 }
 
-/// Distinguishes client-supplied conversation items from persisted model history.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ItemSource {
-    ConversationApi,
-    ResponseHistory,
-}
-
-/// Serialize new history items, retaining public IDs already assigned to input or output items.
-/// Items without IDs receive a storage-generated ID.
-///
-/// # Errors
-/// Returns an error if serialization fails or a supplied ID is empty or has an invalid prefix.
-pub(crate) fn serialize_new_items(items: Vec<InOutItem>, source: ItemSource) -> StoreResult<Vec<(String, String)>> {
-    items
-        .into_iter()
-        .enumerate()
-        .map(|(index, item)| {
-            let (existing_id, prefix) = match &item {
-                InOutItem::Input(input) => (input.id(), input.id_prefix()),
-                InOutItem::Output(output) => (output.id(), output.id_prefix()),
-            };
-            // Upstream model IDs are preserved; some vLLM reasoning items use
-            // msg_ IDs. Prefix errors apply to supplied Conversation Items IDs.
-            if source == ItemSource::ConversationApi
-                && let (Some(id), Some(prefix)) = (existing_id, prefix)
-                && !id.starts_with(prefix)
-            {
-                return Err(StorageError::InvalidItemId {
-                    param: format!("items[{index}].id"),
-                    id: id.to_owned(),
-                    prefix: prefix.trim_end_matches('_'),
-                });
-            }
-            if existing_id == Some("") {
-                return Err(StorageError::Validation("item id cannot be an empty string".to_owned()));
-            }
-            let id = existing_id.map_or_else(|| uuid7_str(prefix.unwrap_or("item_")), str::to_owned);
-            let data = String::try_from(&item)?;
-            Ok((id, data))
-        })
-        .collect()
-}
-
 /// Create items in a transaction with optional conversation context.
 ///
 /// If `conversation_id` is provided, the next sequence range is computed in the insert statement so
@@ -220,14 +179,14 @@ pub(crate) fn serialize_new_items(items: Vec<InOutItem>, source: ItemSource) -> 
 /// Returns an error if insertion fails or an item already belongs to the conversation.
 pub async fn create_in_tx(
     tx: &mut DbTransaction<'_>,
-    items: Vec<(String, String)>,
+    items: Vec<NewItem>,
     conversation_id: Option<&str>,
-) -> StoreResult<Vec<Item>> {
+) -> StoreResult<Vec<WrittenItem>> {
     if items.is_empty() {
         return Ok(Vec::new());
     }
 
-    let mut created: Vec<Item> = Vec::with_capacity(items.len());
+    let mut created: Vec<WrittenItem> = Vec::with_capacity(items.len());
     for batch in items.chunks(MAX_ITEMS_PER_INSERT) {
         let mut rows = if let Some(conversation_id) = conversation_id {
             // Later SQL batches check history from before this call, excluding
@@ -236,7 +195,7 @@ pub async fn create_in_tx(
                 tx,
                 batch,
                 conversation_id,
-                created.iter().filter_map(|item| item.seq).min(),
+                created.iter().filter_map(|item| item.row.seq).min(),
             )
             .await?
         } else {
@@ -245,15 +204,17 @@ pub async fn create_in_tx(
         if conversation_id.is_some() {
             rows.sort_by_key(|row| row.seq);
         }
-        created.append(&mut rows);
+        // Both inserts return exactly one row per item, in input order.
+        created.extend(
+            rows.into_iter()
+                .zip(batch)
+                .map(|(row, item)| WrittenItem { row, role: item.role }),
+        );
     }
     Ok(created)
 }
 
-async fn create_in_tx_without_conversation(
-    tx: &mut DbTransaction<'_>,
-    items: &[(String, String)],
-) -> DbResult<Vec<Item>> {
+async fn create_in_tx_without_conversation(tx: &mut DbTransaction<'_>, items: &[NewItem]) -> DbResult<Vec<Item>> {
     // Each occurrence gets a fresh row ID; the supplied ID is public and may repeat.
     let now = utcnow_str();
     let row_ids = items.iter().map(|_| uuid7_str("item_")).collect::<Vec<_>>();
@@ -268,8 +229,8 @@ async fn create_in_tx_without_conversation(
     );
 
     let mut query = sqlx::query_as::<_, Item>(&sql).bind(now);
-    for ((public_id, data), row_id) in items.iter().zip(&row_ids) {
-        query = query.bind(row_id).bind(public_id).bind(data);
+    for (item, row_id) in items.iter().zip(&row_ids) {
+        query = query.bind(row_id).bind(&item.id).bind(&item.data);
     }
 
     let mut rows = query.fetch_all(&mut **tx).await?;
@@ -280,7 +241,7 @@ async fn create_in_tx_without_conversation(
 
 async fn create_in_tx_with_next_conversation_seq(
     tx: &mut DbTransaction<'_>,
-    items: &[(String, String)],
+    items: &[NewItem],
     conversation_id: &str,
     first_inserted_sequence: Option<i64>,
 ) -> StoreResult<Vec<Item>> {
@@ -326,10 +287,10 @@ async fn create_in_tx_with_next_conversation_seq(
         .bind(conversation_id)
         .bind(first_inserted_sequence);
     #[allow(clippy::cast_possible_wrap)]
-    for (idx, (id, data)) in items.iter().enumerate() {
+    for (idx, item) in items.iter().enumerate() {
         query = query
-            .bind(id)
-            .bind(data)
+            .bind(&item.id)
+            .bind(&item.data)
             .bind(now)
             .bind(conversation_id)
             .bind(idx as i64)
@@ -510,6 +471,14 @@ mod tests {
         InputItem, OutputItem, OutputMessage, ReasoningOutput, ReasoningTextContent, ResponsesInput,
     };
 
+    fn history_item(id: &str) -> NewItem {
+        NewItem {
+            id: id.to_owned(),
+            data: "{}".to_owned(),
+            role: ItemRole::Input,
+        }
+    }
+
     #[test]
     fn new_items_reuse_public_ids_and_generate_storage_ids() {
         let input: InputItem = serde_json::from_value(serde_json::json!({
@@ -536,10 +505,10 @@ mod tests {
             ItemSource::ConversationApi,
         )
         .unwrap();
-        assert_eq!(rows[0].0, "msg_supplied");
-        assert_eq!(rows[1].0, "msg_generated");
-        assert!(rows[2].0.starts_with("msg_"));
-        assert_eq!(rows[3].0, "fc_supplied");
+        assert_eq!(rows[0].id, "msg_supplied");
+        assert_eq!(rows[1].id, "msg_generated");
+        assert!(rows[2].id.starts_with("msg_"));
+        assert_eq!(rows[3].id, "fc_supplied");
     }
 
     #[test]
@@ -556,8 +525,8 @@ mod tests {
         let rows = serialize_new_items(vec![InOutItem::Output(output)], ItemSource::ResponseHistory)
             .expect("serialize code interpreter response history");
 
-        assert_eq!(rows[0].0, "ci_public");
-        let data: Value = serde_json::from_str(&rows[0].1).expect("stored output JSON");
+        assert_eq!(rows[0].id, "ci_public");
+        let data: Value = serde_json::from_str(&rows[0].data).expect("stored output JSON");
         assert_eq!(data["id"], "ci_public");
         assert_eq!(data["type"], "code_interpreter_call");
     }
@@ -606,14 +575,14 @@ mod tests {
             ItemSource::ResponseHistory,
         )
         .expect("serialize response history");
-        let gateway_data: Value = serde_json::from_str(&stored[2].1).expect("stored gateway call");
-        let native_data: Value = serde_json::from_str(&stored[3].1).expect("stored native call");
+        let gateway_data: Value = serde_json::from_str(&stored[2].data).expect("stored gateway call");
+        let native_data: Value = serde_json::from_str(&stored[3].data).expect("stored native call");
         assert_eq!(gateway_data[STORED_CODE_INTERPRETER_ORIGIN_KEY], "gateway");
         assert!(native_data.get(STORED_CODE_INTERPRETER_ORIGIN_KEY).is_none());
 
         let history = stored
             .into_iter()
-            .map(|(id, data)| {
+            .map(|NewItem { id, data, .. }| {
                 Item {
                     id,
                     data,
@@ -665,7 +634,7 @@ mod tests {
         assert!(result.is_ok());
         let rows = result.unwrap();
         assert_eq!(rows.len(), 1);
-        assert!(rows[0].0.starts_with("msg_"));
+        assert!(rows[0].id.starts_with("msg_"));
     }
 
     #[test]
@@ -691,13 +660,16 @@ mod tests {
             .await
             .expect("create in-memory database");
         let items = (0..=MAX_BIND_PARAMETERS)
-            .map(|index| (format!("item_{index}"), "{}".to_owned()))
+            .map(|index| history_item(&format!("item_{index}")))
             .collect::<Vec<_>>();
-        let public_ids = items.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
+        let public_ids = items.iter().map(|item| item.id.clone()).collect::<Vec<_>>();
         let mut transaction = pool.begin().await.expect("begin transaction");
         let created = create_in_tx(&mut transaction, items, None)
             .await
-            .expect("insert item batches");
+            .expect("insert item batches")
+            .into_iter()
+            .map(|written| written.row)
+            .collect::<Vec<_>>();
         transaction.commit().await.expect("commit item batches");
         let row_ids = created.iter().map(|item| item.id.clone()).collect::<Vec<_>>();
         let loaded = get_items(&pool, &row_ids).await.expect("load item batches");
@@ -716,11 +688,14 @@ mod tests {
         let pool = crate::storage::create_pool_with_schema(Some("sqlite://?mode=memory"))
             .await
             .expect("create in-memory database");
-        let items = vec![("item_repeated".to_owned(), "{}".to_owned()); 2];
+        let items = vec![history_item("item_repeated"), history_item("item_repeated")];
         let mut transaction = pool.begin().await.expect("begin transaction");
         let created = create_in_tx(&mut transaction, items, None)
             .await
-            .expect("insert repeated public ids");
+            .expect("insert repeated public ids")
+            .into_iter()
+            .map(|written| written.row)
+            .collect::<Vec<_>>();
         transaction.commit().await.expect("commit history rows");
 
         assert_eq!(created.len(), 2);
@@ -742,12 +717,15 @@ mod tests {
             .expect("create conversation");
         let item_count = MAX_ITEMS_PER_INSERT + 1;
         let items = (0..item_count)
-            .map(|index| (format!("conversation_item_{index}"), "{}".to_owned()))
+            .map(|index| history_item(&format!("conversation_item_{index}")))
             .collect::<Vec<_>>();
         let mut transaction = pool.begin().await.expect("begin transaction");
         let created = create_in_tx(&mut transaction, items, Some(conversation_id))
             .await
-            .expect("insert conversation item batches");
+            .expect("insert conversation item batches")
+            .into_iter()
+            .map(|written| written.row)
+            .collect::<Vec<_>>();
         transaction.commit().await.expect("commit item batches");
         let stored = get_items_by_conversation(&pool, conversation_id)
             .await

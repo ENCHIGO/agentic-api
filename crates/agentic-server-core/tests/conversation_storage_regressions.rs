@@ -186,6 +186,14 @@ async fn insert_with_ids(
 ) -> agentic_core::storage::StoreResult<()> {
     let mut tx = pool.begin().await?;
     agentic_core::storage::models::conversation::lock_in_tx(&mut tx, id).await?;
+    let items = items
+        .into_iter()
+        .map(|(id, data)| item_model::NewItem {
+            id,
+            data,
+            role: item_model::ItemRole::Input,
+        })
+        .collect();
     item_model::create_in_tx(&mut tx, items, Some(id)).await?;
     tx.commit().await?;
     Ok(())

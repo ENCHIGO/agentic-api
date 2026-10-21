@@ -227,17 +227,23 @@ async fn input_items_reject_what_retrieval_rejects() {
     for missing in [transient["id"].as_str().unwrap(), "resp_missing"] {
         assert_eq!(harness.input_items(missing, "").await.status(), StatusCode::NOT_FOUND);
     }
-    for query in [
-        "?limit=0",
-        "?limit=101",
-        "?order=sideways",
-        "?include=reasoning.encrypted_content",
+    for (query, message) in [
+        ("?limit=0", "limit must be between 1 and 100"),
+        ("?limit=101", "limit must be between 1 and 100"),
+        ("?limit=ten", "limit must be between 1 and 100"),
+        ("?limit=1&limit=2", "'limit' must be given at most once"),
+        ("?order=sideways", "order must be 'asc' or 'desc'"),
+        ("?include=no.such.field", "unknown include value 'no.such.field'"),
+        // Hosted tool results come from data sources the gateway does not keep.
+        (
+            "?include[]=web_search_call.results",
+            "include value 'web_search_call.results' is not supported",
+        ),
     ] {
-        assert_eq!(
-            harness.input_items(stored_id, query).await.status(),
-            StatusCode::BAD_REQUEST,
-            "{query}"
-        );
+        let response = harness.input_items(stored_id, query).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{query}");
+        let body: Value = response.json().await.expect("a structured error body");
+        assert_eq!(body["error"]["message"], message, "{query}");
     }
     // Same contract as conversation item listing: an unknown cursor is a not-found naming `after`.
     let unknown_cursor = harness.input_items(stored_id, "?after=msg_unknown").await;
@@ -329,5 +335,76 @@ async fn input_items_keep_an_earlier_turn_output_that_shares_this_turn_output_id
         texts(&harness.page(second["id"].as_str().unwrap(), "?order=asc").await),
         ["first", "same id", "second"]
     );
+    harness.stop().await;
+}
+
+#[tokio::test]
+async fn input_items_accept_repeated_include_values_that_stored_items_carry() {
+    let harness = Harness::start().await;
+    let stored = harness
+        .create(
+            json!({"model":"test-model", "store":true, "input":[{"role":"user", "content":[
+            {"type":"input_text", "text":"look"},
+            {"type":"input_image", "image_url":"data:image/png;base64,AAAA"}]}]}),
+        )
+        .await;
+    let page = harness
+        .page(
+            stored["id"].as_str().unwrap(),
+            "?include[]=message.input_image.image_url&include[]=message.output_text.logprobs\
+             &include=reasoning.encrypted_content",
+        )
+        .await;
+    assert_eq!(
+        page["data"][0]["content"][1]["image_url"], "data:image/png;base64,AAAA",
+        "{page}"
+    );
+    harness.stop().await;
+}
+
+#[tokio::test]
+async fn input_item_pages_make_progress_past_a_repeated_public_id() {
+    // The upstream reuses one message ID every turn, so the third turn's input holds
+    // that public ID twice. A cursor naming it resumes after its furthest occurrence,
+    // as conversation item listing does, instead of returning the same page forever.
+    let upstream = Router::new().route(
+        "/v1/responses",
+        post(|Json(_): Json<Value>| async {
+            Json(json!({"id":"resp_upstream", "object":"response", "created_at":123,
+            "model":"test-model", "status":"completed", "output":[{
+                "type":"message", "id":"msg_reused", "role":"assistant", "status":"completed",
+                "content":[{"type":"output_text", "text":"same id"}]}],
+            "usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}))
+        }),
+    );
+    let harness = Harness::start_with(upstream).await;
+    let mut previous = Value::Null;
+    for input in ["first", "second", "third"] {
+        previous = harness
+            .create(json!({"model":"test-model", "input":input, "store":true, "previous_response_id":previous["id"]}))
+            .await;
+    }
+    let third = previous["id"].as_str().unwrap();
+    assert_eq!(
+        texts(&harness.page(third, "?order=asc").await),
+        ["first", "same id", "second", "same id", "third"]
+    );
+
+    for (order, expected) in [
+        ("asc", ["first", "same id", "third"]),
+        ("desc", ["third", "same id", "first"]),
+    ] {
+        let mut cursor = String::new();
+        let mut walked = Vec::new();
+        for _ in 0..10 {
+            let page = harness.page(third, &format!("?order={order}&limit=1{cursor}")).await;
+            walked.extend(texts(&page));
+            if page["has_more"] == false {
+                break;
+            }
+            cursor = format!("&after={}", page["last_id"].as_str().unwrap());
+        }
+        assert_eq!(walked, expected, "{order}");
+    }
     harness.stop().await;
 }

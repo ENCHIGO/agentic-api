@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use crate::storage::{ResponseData, ResponseMetadata, ResponseStore, StorageError};
-use crate::types::conversations::{ItemOrder, ItemResponse, ListItemsResponse};
+use crate::types::conversations::{ItemOrder, ItemPage, ItemResponse, ListItemsResponse};
 use crate::types::io::InOutItem;
 use crate::types::io::OutputItem;
 use crate::types::request_response::ResponsePayload;
@@ -72,19 +72,13 @@ impl ResponseHandler {
     /// was stored (for older records, the IDs in its stored payload).
     ///
     /// Pagination follows conversation item listing: `after` is the public ID of
-    /// the last item on the previous page, and `limit` is clamped to `1..=100`.
+    /// the last item on the previous page.
     ///
     /// # Errors
     /// Returns a storage error for a missing response, an unknown `after` cursor
     /// or unavailable storage, and a conflict for older records without a
     /// response snapshot, matching [`Self::retrieve`].
-    pub async fn list_input_items(
-        &self,
-        response_id: &str,
-        limit: i64,
-        after: Option<&str>,
-        order: ItemOrder,
-    ) -> ExecutorResult<ListItemsResponse> {
+    pub async fn list_input_items(&self, response_id: &str, page: ItemPage<'_>) -> ExecutorResult<ListItemsResponse> {
         let stored = self.store.get(response_id).await?;
         let snapshot = stored.metadata.response_snapshot.as_deref().ok_or_else(|| {
             ExecutorError::Conflict(
@@ -114,25 +108,26 @@ impl ResponseHandler {
                 items.push(ItemResponse::new(row.public_id().to_owned(), item));
             }
         }
-        if order == ItemOrder::Desc {
+        if page.order == ItemOrder::Desc {
             items.reverse();
         }
-        let start = match after {
+        // A public ID can name several occurrences of an item in the history. Like
+        // conversation item listing, a cursor resumes after the furthest occurrence in
+        // this ordering, so paging always makes progress.
+        let start = match page.after {
             Some(cursor) => {
                 items
                     .iter()
-                    .position(|item| item.id == cursor)
+                    .rposition(|item| item.id == cursor)
                     .ok_or_else(|| StorageError::ItemCursorNotFound { id: cursor.to_owned() })?
                     + 1
             }
             None => 0,
         };
-        // Safe: limit is clamped to [1, 100].
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let limit = limit.clamp(1, 100) as usize;
-        let page: Vec<ItemResponse> = items.into_iter().skip(start).take(limit + 1).collect();
-        let has_more = page.len() > limit;
-        Ok(ListItemsResponse::new(page.into_iter().take(limit).collect(), has_more))
+        let limit = page.limit.get();
+        let has_more = items.len() - start > limit;
+        let data = items.into_iter().skip(start).take(limit).collect();
+        Ok(ListItemsResponse::new(data, has_more))
     }
 
     /// Retrieves the stored response for `previous_response_id`.

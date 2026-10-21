@@ -320,7 +320,7 @@ async fn deleting_a_response_keeps_its_descendants_and_ends_its_own_continuation
     assert_eq!(deleted.status(), StatusCode::OK);
     assert_eq!(
         deleted.json::<Value>().await.unwrap(),
-        json!({"id":parent_id, "object":"response", "deleted":true})
+        json!({"id":parent_id, "object":"response.deleted", "deleted":true})
     );
     assert_eq!(retrieve(parent_id).await.status(), StatusCode::NOT_FOUND);
     assert_eq!(delete(parent_id).await.status(), StatusCode::NOT_FOUND);
