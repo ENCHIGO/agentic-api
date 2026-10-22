@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use super::models::{item, response};
+use super::models::{conversation, item, response};
 use super::pool::DbPool;
 use super::types::{ResponseData, ResponseMetadata, StorageError, StoreResult};
 use crate::types::io::InOutItem;
@@ -58,11 +58,13 @@ impl ResponseStore {
         row.try_into()
     }
 
-    /// Deletes a stored response.
+    /// Deletes a stored response and the history rows nothing else keeps.
     ///
     /// Descendants created with `previous_response_id` stay readable because each
     /// one stores its own complete history item list; their reference to the
-    /// deleted response is cleared by the foreign key.
+    /// deleted response is cleared by the foreign key, and the rows they list are kept.
+    /// Rows that belong to a conversation stay with it. When the response was its
+    /// conversation's latest, the conversation moves to its newest remaining response.
     ///
     /// Deletion does not reach WebSocket sessions. A session that already caches this
     /// response as its latest checkpoint keeps continuing from it without a storage
@@ -74,9 +76,25 @@ impl ResponseStore {
     /// Returns [`StorageError::NotFound`] if no response has this ID, or an error
     /// if the database statement fails or the store is disabled.
     pub async fn delete(&self, response_id: &str) -> StoreResult<()> {
-        if response::delete(self.pool()?, response_id).await? == 0 {
+        let mut tx = self.pool()?.begin().await?;
+        let Some(row) = response::get_in_tx(&mut tx, response_id).await? else {
             return Err(StorageError::not_found("Response", response_id));
+        };
+        // Same lock order as conversation persistence: the conversation, then its responses.
+        if let Some(conversation_id) = row.conversation_id.as_deref() {
+            match conversation::lock_in_tx(&mut tx, conversation_id).await {
+                Ok(_) | Err(sqlx::Error::RowNotFound) => {}
+                Err(error) => return Err(error.into()),
+            }
         }
+        let history_item_ids = row.history_item_ids_vec().map_err(StorageError::Serialization)?;
+        // Before the delete: its foreign key would clear the pointer this matches on.
+        if let Some(conversation_id) = row.conversation_id.as_deref() {
+            response::repoint_latest_in_tx(&mut tx, conversation_id, response_id).await?;
+        }
+        response::delete_in_tx(&mut tx, response_id).await?;
+        response::delete_unreferenced_items_in_tx(&mut tx, &history_item_ids).await?;
+        tx.commit().await?;
         Ok(())
     }
 

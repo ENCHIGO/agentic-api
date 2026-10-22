@@ -209,8 +209,10 @@ async fn store_false_continuation_of_a_stored_response_is_not_retained() {
     let orphaned = create(json!({"model":"test-model", "input":"third", "store":true,
         "previous_response_id":child_id}))
     .await;
-    assert_eq!(orphaned.status(), StatusCode::NOT_FOUND);
-    assert!(orphaned.json::<Value>().await.unwrap().get("error").is_some());
+    assert_eq!(orphaned.status(), StatusCode::BAD_REQUEST);
+    let body = orphaned.json::<Value>().await.unwrap();
+    assert_eq!(body["error"]["code"], "previous_response_not_found");
+    assert_eq!(body["error"]["param"], "previous_response_id");
     assert_eq!(
         requests.lock().unwrap().len(),
         2,
@@ -330,7 +332,10 @@ async fn deleting_a_response_keeps_its_descendants_and_ends_its_own_continuation
     let orphaned = create(json!({"model":"test-model", "input":"third", "store":true,
         "previous_response_id":parent_id}))
     .await;
-    assert_eq!(orphaned.status(), StatusCode::NOT_FOUND);
+    // As OpenAI reports it: a request error naming `previous_response_id`.
+    assert_eq!(orphaned.status(), StatusCode::BAD_REQUEST);
+    let body = orphaned.json::<Value>().await.unwrap();
+    assert_eq!(body["error"]["code"], "previous_response_not_found", "{body}");
     assert_eq!(requests.lock().unwrap().len(), 2);
 
     // A descendant stores its own complete history, so it survives its parent:

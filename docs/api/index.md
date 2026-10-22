@@ -441,10 +441,17 @@ must send that key as a bearer token.
 Deletes a stored response and returns
 `{"id": "<response_id>", "object": "response.deleted", "deleted": true}`. Later
 retrieval returns `404`, and a new request naming the deleted ID as
-`previous_response_id` is rejected. Responses created from it stay retrievable
-and can still be continued: each stored response keeps its own complete
-history. Items are not removed, because one item can belong to the history of
-many responses. Unknown IDs return `404`. Authentication matches retrieval.
+`previous_response_id` returns `400` with code `previous_response_not_found`
+and `param: "previous_response_id"`, as for any unknown previous response.
+Responses created from it stay retrievable and can still be continued: each
+stored response keeps its own complete history. The response's prompt and
+output rows are erased unless something still uses them: another response's
+history (descendants and siblings inherit history), a conversation, or a
+conversation item that references them. Deleting a conversation's latest
+response moves the conversation to its newest remaining response, so the next
+turn keeps the closest stored state (effective settings, tools loaded by tool
+search, the multi-agent tree). Unknown IDs return `404`. Authentication matches
+retrieval.
 
 Deletion does not reach live WebSocket sessions: a connection whose latest
 response is the deleted one can still continue from it, because the session

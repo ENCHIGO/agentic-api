@@ -67,21 +67,116 @@ pub async fn get(pool: &DbPool, id: &str) -> DbResult<Option<Response>> {
         .await
 }
 
-/// Delete a response row, returning how many rows were removed.
+/// History items checked per query when looking for references that keep them alive.
+const REFERENCE_CHECK_BATCH: usize = 64;
+
+/// Read a response row inside a transaction.
 ///
-/// Items are left in place: a response-history item id is copied into the
-/// `history_item_ids` of every descendant, so it is not owned by this row.
+/// # Errors
+/// Returns `DbResult::Err` if the query fails.
+pub async fn get_in_tx(tx: &mut DbTransaction<'_>, id: &str) -> DbResult<Option<Response>> {
+    sqlx::query_as::<_, Response>("SELECT * FROM responses WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await
+}
+
+/// Delete a response row.
+///
 /// Foreign keys clear `responses.previous_response_id` and
-/// `conversations.latest_response_id` references to the deleted row.
+/// `conversations.latest_response_id` references to it.
 ///
 /// # Errors
 /// Returns `DbResult::Err` if the database statement fails.
-pub async fn delete(pool: &DbPool, id: &str) -> DbResult<u64> {
-    let result = sqlx::query("DELETE FROM responses WHERE id = $1")
+pub async fn delete_in_tx(tx: &mut DbTransaction<'_>, id: &str) -> DbResult<()> {
+    sqlx::query("DELETE FROM responses WHERE id = $1")
         .bind(id)
-        .execute(pool)
+        .execute(&mut **tx)
         .await?;
-    Ok(result.rows_affected())
+    Ok(())
+}
+
+/// Point a conversation that named `deleted_id` as its latest response at its newest remaining response.
+///
+/// The latest response carries the conversation's state (effective settings, tools loaded by
+/// tool search, the multi-agent tree), so the conversation keeps the closest state it still has.
+///
+/// # Errors
+/// Returns `DbResult::Err` if a database statement fails.
+pub async fn repoint_latest_in_tx(tx: &mut DbTransaction<'_>, conversation_id: &str, deleted_id: &str) -> DbResult<()> {
+    sqlx::query(
+        "UPDATE conversations SET latest_response_id = ( \
+             SELECT id FROM responses WHERE conversation_id = $1 AND id <> $2 \
+             ORDER BY created_at DESC, id DESC LIMIT 1 \
+         ) WHERE id = $1 AND latest_response_id = $2",
+    )
+    .bind(conversation_id)
+    .bind(deleted_id)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
+/// Delete the history rows of a deleted response that nothing else keeps.
+///
+/// Each batch scans the `responses` table once; deletion is rare enough to pay that.
+///
+/// A row stays when it belongs to a conversation, when a conversation item references it,
+/// or when another response's history lists it (descendants and siblings copy inherited
+/// history). Call after the response row itself is deleted. Returns the number of rows removed.
+///
+/// # Errors
+/// Returns `DbResult::Err` if a database statement fails.
+pub async fn delete_unreferenced_items_in_tx(tx: &mut DbTransaction<'_>, history_item_ids: &[String]) -> DbResult<u64> {
+    let mut removed = 0;
+    for batch in history_item_ids.chunks(REFERENCE_CHECK_BATCH) {
+        let placeholders = (1..=batch.len())
+            .map(|index| format!("${index}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let detached = format!(
+            "SELECT id FROM items WHERE id IN ({placeholders}) AND conversation_id IS NULL \
+             AND NOT EXISTS (SELECT 1 FROM items referencing WHERE referencing.reference_id = items.id)"
+        );
+        let mut query = sqlx::query_scalar::<_, String>(&detached);
+        for id in batch {
+            query = query.bind(id);
+        }
+        let mut candidates: Vec<String> = query.fetch_all(&mut **tx).await?;
+        if candidates.is_empty() {
+            continue;
+        }
+
+        // `LIKE` narrows the scan; parsing confirms an exact entry (`_` in IDs is a wildcard).
+        let patterns = (1..=candidates.len())
+            .map(|index| format!("history_item_ids LIKE ${index}"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        let sql = format!("SELECT history_item_ids FROM responses WHERE {patterns}");
+        let mut query = sqlx::query_scalar::<_, Option<String>>(&sql);
+        for id in &candidates {
+            query = query.bind(format!("%\"{id}\"%"));
+        }
+        for history in query.fetch_all(&mut **tx).await?.into_iter().flatten() {
+            let listed: Vec<String> = serde_json::from_str(&history).unwrap_or_default();
+            candidates.retain(|id| !listed.contains(id));
+        }
+        if candidates.is_empty() {
+            continue;
+        }
+
+        let placeholders = (1..=candidates.len())
+            .map(|index| format!("${index}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let delete = format!("DELETE FROM items WHERE id IN ({placeholders})");
+        let mut query = sqlx::query(&delete);
+        for id in &candidates {
+            query = query.bind(id);
+        }
+        removed += query.execute(&mut **tx).await?.rows_affected();
+    }
+    Ok(removed)
 }
 
 /// Get the response that committed a conversation turn.
