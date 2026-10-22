@@ -11,9 +11,12 @@ use std::collections::HashMap;
 use http::header::{HeaderName, HeaderValue};
 use opentelemetry::propagation::Injector;
 use rmcp::model::{ClientJsonRpcMessage, ClientRequest, JsonRpcMessage, Meta};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt as _;
+
+use crate::utils::common::{deserialize_from_value_opt, deserialize_from_value_or_custom_default, serialize_to_value};
 
 const TRACEPARENT: HeaderName = HeaderName::from_static("traceparent");
 const TRACESTATE: HeaderName = HeaderName::from_static("tracestate");
@@ -23,12 +26,30 @@ const BAGGAGE: HeaderName = HeaderName::from_static("baggage");
 /// dropped, so `_meta` never holds anything the HTTP transport would not forward.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct W3cPropagation {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "lenient_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     traceparent: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "lenient_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     tracestate: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "lenient_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     baggage: Option<String>,
+}
+
+/// A field that is not a string is dropped on its own, so one malformed value does
+/// not discard the rest of the caller's context.
+fn lenient_string<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    Ok(Option::<Value>::deserialize(deserializer)?.and_then(deserialize_from_value_opt))
 }
 
 impl Injector for W3cPropagation {
@@ -59,8 +80,8 @@ impl W3cPropagation {
 
     /// `_meta` for a `tools/call`, or `None` when there is nothing to propagate.
     pub(crate) fn into_meta(self) -> Option<Meta> {
-        match serde_json::to_value(self) {
-            Ok(serde_json::Value::Object(map)) if !map.is_empty() => Some(Meta(map)),
+        match serialize_to_value(&self) {
+            Ok(Value::Object(map)) if !map.is_empty() => Some(Meta(map)),
             _ => None,
         }
     }
@@ -76,18 +97,13 @@ impl W3cPropagation {
         let Some(meta) = call.params.meta.as_ref() else {
             return Self::default();
         };
-        let fields = [TRACEPARENT, TRACESTATE, BAGGAGE].map(|name| {
-            meta.0
-                .get(name.as_str())
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_owned)
-        });
-        let [traceparent, tracestate, baggage] = fields;
-        Self {
-            traceparent,
-            tracestate,
-            baggage,
-        }
+        // The transport still sends `message`, so the deserializer gets a copy of `_meta`.
+        deserialize_from_value_or_custom_default(
+            Value::Object(meta.0.clone()),
+            "ignoring malformed MCP propagation metadata",
+            |propagation| propagation,
+            Self::default(),
+        )
     }
 
     /// Replace any configured propagation headers with this context.
@@ -136,6 +152,40 @@ mod tests {
         let restored = W3cPropagation::from_message(&call_with(propagation.clone()));
         assert_eq!(restored, propagation);
         assert!(W3cPropagation::default().into_meta().is_none());
+    }
+
+    fn call_with_meta(meta: Value) -> ClientJsonRpcMessage {
+        let mut params = CallToolRequestParams::new("echo");
+        let Value::Object(map) = meta else {
+            panic!("meta is an object")
+        };
+        params.meta = Some(Meta(map));
+        ClientJsonRpcMessage::request(
+            ClientRequest::CallToolRequest(CallToolRequest::new(params)),
+            NumberOrString::Number(1),
+        )
+    }
+
+    #[test]
+    fn missing_null_and_malformed_fields_are_dropped_one_by_one() {
+        let restored = W3cPropagation::from_message(&call_with_meta(serde_json::json!({
+            "traceparent": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+            "tracestate": null,
+            "baggage": 7,
+            "progressToken": "unrelated",
+        })));
+        assert_eq!(
+            restored,
+            W3cPropagation {
+                traceparent: Some("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01".to_owned()),
+                tracestate: None,
+                baggage: None,
+            }
+        );
+        assert_eq!(
+            W3cPropagation::from_message(&call_with_meta(serde_json::json!({}))),
+            W3cPropagation::default()
+        );
     }
 
     #[test]
