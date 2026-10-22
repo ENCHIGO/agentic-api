@@ -1,9 +1,11 @@
 mod calls;
 mod content;
 mod conversions;
+mod file_text;
 mod validation;
 mod window;
 
+pub use file_text::InputFileError;
 pub use validation::InputValidationError;
 
 pub(crate) use window::{
