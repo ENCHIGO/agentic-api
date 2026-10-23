@@ -43,14 +43,15 @@ fi
 mkdir -p "$CASSETTES_DIR"
 record() {
     local provider="$1" scenario="$2" model="$3" transport="$4"
-    local turns mode destination temporary
+    local turns mode destination temporary read_timeout
+    read_timeout="${HTTP_READ_TIMEOUT:-300}"
     case "$scenario" in
         lifecycle) turns=19; mode=response-lifecycle ;;
         pagination) turns=16; mode=response-pagination ;;
         edge-cases) turns=23; mode=response-edge-cases ;;
         conversation) turns=19; mode=response-conversation ;;
         replayed-items) turns=14; mode=response-replayed-items ;;
-        tool-items) turns=40; mode=response-tool-items ;;
+        tool-items) turns=48; mode=response-tool-items; read_timeout="${HTTP_READ_TIMEOUT:-900}" ;;
     esac
     local suffix="" stream_flag=--no-stream
     if [[ "$transport" == streaming ]]; then suffix="-stream"; stream_flag=--stream; fi
@@ -65,8 +66,11 @@ record() {
     fi
     echo "Recording $provider/$scenario -> $destination"
     rm -f "$temporary"
-    "$PYTHON_BIN" "$SCRIPT_DIR/record_cassette.py" \
+    local multi_agent_model="$model"
+    if [[ "$provider" == openai ]]; then multi_agent_model="${OPENAI_MULTI_AGENT_MODEL:-gpt-5.6-sol}"; fi
+    RESPONSES_MULTI_AGENT_MODEL="$multi_agent_model" "$PYTHON_BIN" "$SCRIPT_DIR/record_cassette.py" \
         --mode items --items-scenario "$mode" --turns "$turns" \
+        --http-read-timeout "$read_timeout" \
         --proxy-port "${RECORDER_PROXY_PORT:-7070}" --model "$model" "$stream_flag" "${backend[@]}" --output "$temporary"
     "$PYTHON_BIN" - "$temporary" "$scenario" "$turns" <<'CASSETTE_CHECK'
 import sys
@@ -77,8 +81,8 @@ path, scenario, count = Path(sys.argv[1]), sys.argv[2], int(sys.argv[3])
 cassette = safe_load(path.read_text())
 assert list(cassette) == ["turns"], "cassette must have one flat turns list"
 turns = cassette["turns"]
-assert len(turns) == count
-assert [turn["filename"] for turn in turns] == [f"t{i}" for i in range(1, count + 1)]
+assert len(turns) >= 5 if scenario == "tool-items" else len(turns) == count
+assert [turn["filename"] for turn in turns] == [f"t{i}" for i in range(1, len(turns) + 1)]
 for turn in turns:
     assert set(turn) == {"filename", "request", "response"}
     request, response = turn["request"], turn["response"]
@@ -109,16 +113,28 @@ elif scenario == "replayed-items":
     assert sum(turn["request"]["method"] == "POST" for turn in turns) == 5
     assert any(len(turn["request"]["body"].get("input", [])) == 3 for turn in turns)
 elif scenario == "tool-items":
-    for create, listing in zip(turns[::2], turns[1::2]):
-        assert create["request"]["method"] == "POST"
-        assert create["request"]["body"]["stream"] is False
-        assert listing["request"]["method"] == "GET"
-        response_id = create["response"]["body"].get("id", "resp_missing")
-        assert listing["request"]["path"] == f"/v1/responses/{response_id}/input_items"
-    assert {"web_search_call", "mcp_list_tools", "mcp_call", "code_interpreter_call",
-            "shell_call", "shell_call_output", "custom_tool_call", "custom_tool_call_output"} <= {
-        item.get("type") for turn in turns[::2] for item in turn["request"]["body"]["input"]}
-print(f"Validated {path.name}: {count} flat HTTP turns")
+    created_ids = set()
+    first_tools = set()
+    for index, turn in enumerate(turns):
+        request, response = turn["request"], turn["response"]
+        if request["method"] != "POST":
+            continue
+        body = request["body"]
+        if "previous_response_id" not in body and not body.get("multi_agent", {}).get("enabled"):
+            assert body["tools"], "tool-enabled requests must preserve declarations"
+        assert body["stream"] is False
+        if "previous_response_id" in body:
+            assert body["previous_response_id"] in created_ids
+        else:
+            first_tools.update(tool["type"] for tool in body.get("tools", []))
+        if response["status_code"] == 200:
+            response_id = response["body"]["id"]
+            created_ids.add(response_id)
+            listing = turns[index + 1]["request"]
+            assert listing["method"] == "GET"
+            assert listing["path"] == f"/v1/responses/{response_id}/input_items"
+    assert first_tools == {"web_search_preview", "mcp", "function", "code_interpreter", "shell", "custom", "tool_search", "namespace"}
+print(f"Validated {path.name}: {len(turns)} flat HTTP turns")
 CASSETTE_CHECK
     mv "$temporary" "$destination"
 }
@@ -128,8 +144,8 @@ for provider in openai gateway; do
     if [[ "$provider" == openai ]]; then model="$OPENAI_MODEL"; else model="$GATEWAY_MODEL"; fi
     for scenario in lifecycle pagination edge-cases conversation replayed-items tool-items; do
         if [[ "$SCENARIO" != all && "$SCENARIO" != "$scenario" ]]; then continue; fi
-        # Admission probes stay JSON so failures remain inspectable. Capture
-        # tool-items once even when both transports are selected.
+        # Source tool scenarios use JSON. Capture tool-items once even
+        # when both transports are selected.
         if [[ "$scenario" == tool-items ]]; then
             record "$provider" "$scenario" "$model" nonstreaming
             continue

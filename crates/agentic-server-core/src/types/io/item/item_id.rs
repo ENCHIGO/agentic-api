@@ -24,7 +24,8 @@ impl InputItem {
             Self::McpCall(item) => Some(&item.id),
             Self::ToolSearchOutput(item) => item.id.as_deref(),
             Self::CustomToolCallOutput(item) => item.id.as_deref(),
-            Self::FunctionCallOutput(_) | Self::CompactionTrigger => None,
+            Self::FunctionCallOutput(item) => item.id.as_deref(),
+            Self::CompactionTrigger => None,
         }
     }
 
@@ -37,7 +38,7 @@ impl InputItem {
             Self::MultiAgentCallOutput(_) => Some("maco_"),
             Self::AgentMessage(_) => Some("amsg_"),
             Self::Message(_) => Some("msg_"),
-            Self::FunctionCall(_) => Some("fc_"),
+            Self::FunctionCall(_) | Self::FunctionCallOutput(_) => Some("fc_"),
             Self::CodeInterpreterCall(_) => Some("ci_"),
             Self::ToolSearchCall(_) => Some("tsc_"),
             Self::CustomToolCall(_) => Some("ctc_"),
@@ -47,11 +48,10 @@ impl InputItem {
             Self::Compaction(_) => Some("cmp_"),
             Self::WebSearchCall(_) => Some("ws_"),
             Self::McpCall(_) => Some("mcp_"),
-            Self::ShellCallOutput(_)
-            | Self::FunctionCallOutput(_)
-            | Self::ToolSearchOutput(_)
-            | Self::CustomToolCallOutput(_)
-            | Self::CompactionTrigger => None,
+            Self::ShellCallOutput(_) => Some("sho_"),
+            Self::CustomToolCallOutput(_) => Some("ctco_"),
+            Self::ToolSearchOutput(_) => Some("tso_"),
+            Self::CompactionTrigger => None,
         }
     }
 }
@@ -134,7 +134,8 @@ impl InOutItem {
                 InputItem::McpListTools(item) => item.id = id,
                 InputItem::WebSearchCall(item) => item.id = id,
                 InputItem::McpCall(item) => item.id = id,
-                InputItem::FunctionCallOutput(_) | InputItem::CompactionTrigger => {}
+                InputItem::FunctionCallOutput(item) => item.id = Some(id),
+                InputItem::CompactionTrigger => {}
             },
             Self::Output(item) => match item {
                 OutputItem::MultiAgentCall(item) => item.id = id,

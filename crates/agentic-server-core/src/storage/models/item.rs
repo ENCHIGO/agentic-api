@@ -1,7 +1,6 @@
 //! Conversation history item stored in the database.
 
 use serde_json::Value;
-use std::convert::TryFrom;
 use std::fmt::Write;
 use tracing::warn;
 
@@ -162,29 +161,6 @@ fn item_values_clause(row_count: usize, first_bind_index: usize, sequence_from_c
     }
 
     clause
-}
-
-/// Serialize new history items, retaining public IDs already assigned to input or output items.
-/// Items without IDs receive a storage-generated ID.
-///
-/// # Errors
-/// Returns an error if serialization fails or a supplied ID is empty.
-pub(crate) fn serialize_new_items(items: Vec<InOutItem>) -> StoreResult<Vec<(String, String)>> {
-    items
-        .into_iter()
-        .map(|item| {
-            let (existing_id, prefix) = match &item {
-                InOutItem::Input(input) => (input.id(), input.id_prefix()),
-                InOutItem::Output(output) => (output.id(), output.id_prefix()),
-            };
-            if existing_id == Some("") {
-                return Err(StorageError::Validation("item id cannot be an empty string".to_owned()));
-            }
-            let id = existing_id.map_or_else(|| uuid7_str(prefix.unwrap_or("item_")), str::to_owned);
-            let data = String::try_from(&item)?;
-            Ok((id, data))
-        })
-        .collect()
 }
 
 /// Create items in a transaction with optional conversation context.
@@ -499,161 +475,7 @@ pub async fn detach_from_conversation_in_tx(
 mod tests {
     use super::*;
     use crate::types::event::MessageStatus;
-    use crate::types::io::{
-        InputItem, OutputItem, OutputMessage, ReasoningOutput, ReasoningTextContent, ResponsesInput,
-    };
-
-    #[test]
-    fn new_items_reuse_public_ids_and_generate_storage_ids() {
-        let input: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "message", "id": "msg_supplied", "role": "user", "content": "hello"
-        }))
-        .unwrap();
-        let output = OutputItem::Message(OutputMessage::new("msg_generated", MessageStatus::Completed));
-        let without_id: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "message", "role": "user", "content": "next"
-        }))
-        .unwrap();
-        let function_call: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "function_call", "id": "fc_supplied", "call_id": "call_1",
-            "name": "lookup", "arguments": "{}"
-        }))
-        .unwrap();
-        let rows = serialize_new_items(vec![
-            InOutItem::Input(input),
-            InOutItem::Output(output),
-            InOutItem::Input(without_id),
-            InOutItem::Input(function_call),
-        ])
-        .unwrap();
-        assert_eq!(rows[0].0, "msg_supplied");
-        assert_eq!(rows[1].0, "msg_generated");
-        assert!(rows[2].0.starts_with("msg_"));
-        assert_eq!(rows[3].0, "fc_supplied");
-    }
-
-    #[test]
-    fn response_history_preserves_code_interpreter_public_id() {
-        let output = OutputItem::CodeInterpreterCall(crate::types::io::CodeInterpreterCall {
-            agent: None,
-            id: "ci_public".to_owned(),
-            container_id: "cntr_public".to_owned(),
-            code: "print(42)".to_owned(),
-            status: crate::types::io::CodeInterpreterCallStatus::Completed,
-            outputs: Some(vec![]),
-            origin: CodeInterpreterCallOrigin::default(),
-        });
-        let rows =
-            serialize_new_items(vec![InOutItem::Output(output)]).expect("serialize code interpreter response history");
-
-        assert_eq!(rows[0].0, "ci_public");
-        let data: Value = serde_json::from_str(&rows[0].1).expect("stored output JSON");
-        assert_eq!(data["id"], "ci_public");
-        assert_eq!(data["type"], "code_interpreter_call");
-    }
-
-    #[test]
-    fn code_interpreter_history_replays_native_call_without_gateway_duplicate() {
-        let gateway_call: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "function_call",
-            "id": "fc_gateway",
-            "call_id": "call_gateway",
-            "name": "code_interpreter",
-            "arguments": "{\"code\":\"print(42)\"}",
-            "status": "completed"
-        }))
-        .expect("gateway model-facing call");
-        let gateway_result: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "function_call_output",
-            "call_id": "call_gateway",
-            "output": "42"
-        }))
-        .expect("gateway model-facing output");
-        let native_call: OutputItem = serde_json::from_value(serde_json::json!({
-            "type": "code_interpreter_call",
-            "id": "ci_native",
-            "container_id": "cntr_native",
-            "code": "print(7)",
-            "status": "completed",
-            "outputs": [{"type": "logs", "logs": "7\n"}]
-        }))
-        .expect("native upstream call");
-        let mut gateway_projection = native_call.clone();
-        let OutputItem::CodeInterpreterCall(call) = &mut gateway_projection else {
-            panic!("code interpreter call");
-        };
-        call.id = "ci_gateway".to_owned();
-        call.container_id = "cntr_gateway".to_owned();
-        call.origin = CodeInterpreterCallOrigin::Gateway;
-
-        let stored = serialize_new_items(vec![
-            InOutItem::Input(gateway_call),
-            InOutItem::Input(gateway_result),
-            InOutItem::Output(gateway_projection),
-            InOutItem::Output(native_call),
-        ])
-        .expect("serialize response history");
-        let gateway_data: Value = serde_json::from_str(&stored[2].1).expect("stored gateway call");
-        let native_data: Value = serde_json::from_str(&stored[3].1).expect("stored native call");
-        assert_eq!(gateway_data[STORED_CODE_INTERPRETER_ORIGIN_KEY], "gateway");
-        assert!(native_data.get(STORED_CODE_INTERPRETER_ORIGIN_KEY).is_none());
-
-        let history = stored
-            .into_iter()
-            .map(|(id, data)| {
-                Item {
-                    id,
-                    data,
-                    created_at: 0,
-                    conversation_id: None,
-                    seq: None,
-                    tenant_id: None,
-                    reference_id: None,
-                    public_id: None,
-                }
-                .as_inout()
-                .expect("rehydrate stored item")
-            })
-            .collect();
-        let inputs = InOutItem::into_input_items(history);
-        assert_eq!(inputs.len(), 3);
-        assert!(matches!(&inputs[0], InputItem::FunctionCall(call) if call.call_id == "call_gateway"));
-        assert!(matches!(&inputs[1], InputItem::FunctionCallOutput(output) if output.call_id == "call_gateway"));
-        assert!(
-            matches!(&inputs[2], InputItem::CodeInterpreterCall(call) if call.id == "ci_native"
-            && call.code == "print(7)" && call.outputs.as_ref().is_some_and(|outputs| outputs.len() == 1))
-        );
-        let model_input =
-            serde_json::to_value(ResponsesInput::from(inputs).model_input()).expect("model input serializes");
-        assert_eq!(model_input[2]["type"], "code_interpreter_call");
-        assert!(model_input[2].get(STORED_CODE_INTERPRETER_ORIGIN_KEY).is_none());
-    }
-
-    #[test]
-    fn serialize_new_items_rejects_empty_id() {
-        let input: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "message", "id": "", "role": "user", "content": "test"
-        }))
-        .unwrap();
-        let result = serialize_new_items(vec![InOutItem::Input(input)]);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.is_validation());
-        assert!(matches!(err, StorageError::Validation(_)));
-    }
-
-    #[test]
-    fn serialize_new_items_accepts_missing_id() {
-        let input: InputItem = serde_json::from_value(serde_json::json!({
-            "type": "message", "role": "user", "content": "test"
-        }))
-        .unwrap();
-        let result = serialize_new_items(vec![InOutItem::Input(input)]);
-        assert!(result.is_ok());
-        let rows = result.unwrap();
-        assert_eq!(rows.len(), 1);
-        assert!(rows[0].0.starts_with("msg_"));
-    }
+    use crate::types::io::{InputItem, OutputItem, ReasoningOutput, ReasoningTextContent};
 
     #[test]
     fn item_values_clause_numbers_plain_rows() {
@@ -1057,6 +879,10 @@ mod item_id_tests {
             json!({"type":"message", "id":"msg_1", "role":"user", "content":"hello"}),
             json!({"type":"function_call", "id":"fc_1", "call_id":"call_1", "name":"f", "arguments":"{}"}),
             json!({"type":"tool_search_call", "id":"tsc_1", "call_id":"call_1", "arguments":{}}),
+            json!({"type":"function_call_output", "id":"fc_1", "call_id":"call_1", "output":"done"}),
+            json!({"type":"custom_tool_call_output", "id":"ctco_1", "call_id":"call_1", "output":"done"}),
+            json!({"type":"shell_call_output", "id":"sho_1", "call_id":"call_1", "output":[]}),
+            json!({"type":"tool_search_output", "id":"tso_1", "call_id":"call_1", "tools":[]}),
             json!({"type":"custom_tool_call", "id":"ctc_1", "call_id":"call_1", "name":"f", "input":"x"}),
             json!({"type":"shell_call", "id":"sh_1", "call_id":"call_1", "action":{"commands":["pwd"]}}),
             json!({"type":"reasoning", "id":"rs_1", "summary":[]}),
@@ -1078,12 +904,12 @@ mod item_id_tests {
     }
 
     #[test]
-    fn optional_ids_and_unverified_prefixes_are_not_restricted() {
+    fn optional_ids_are_not_required() {
         for value in [
             json!({"type":"message", "role":"user", "content":"hello"}),
             json!({"type":"function_call", "call_id":"call_1", "name":"f", "arguments":"{}"}),
             json!({"type":"function_call_output", "call_id":"call_1", "output":"done"}),
-            json!({"type":"shell_call_output", "id":"output_1", "call_id":"call_1", "output":[]}),
+            json!({"type":"shell_call_output", "call_id":"call_1", "output":[]}),
         ] {
             stored(value).validate_client_id("items[0].id".into()).unwrap();
         }

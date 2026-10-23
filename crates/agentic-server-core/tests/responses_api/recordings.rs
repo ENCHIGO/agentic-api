@@ -288,75 +288,95 @@ fn error_metadata_comparison_detects_each_field() {
 }
 
 #[test]
-fn recorded_tool_history_ids_and_statuses() {
-    let turns = cassette("tool-items", "openai").expect("OpenAI tool-history recording");
-    assert_eq!(turns.len(), 40);
-    let groups: &[&[(&str, &str)]] = &[
-        &[("web_search_call", "ws_")],
-        &[("mcp_list_tools", "mcpl_"), ("mcp_call", "mcp_")],
-        &[("code_interpreter_call", "ci_")],
-        &[("shell_call", "sh_"), ("shell_call_output", "sho_")],
-        &[("custom_tool_call", "ctc_"), ("custom_tool_call_output", "ctco_")],
+fn recorded_tool_execution_ids_and_statuses() {
+    for provider in ["openai", "gateway"] {
+        assert_tool_execution_ids_and_statuses(provider);
+    }
+}
+
+fn assert_tool_execution_ids_and_statuses(provider: &str) {
+    let turns = cassette("tool-items", provider).expect("tool-execution recording");
+    assert_eq!(
+        turns.iter().filter(|turn| turn["request"]["method"] == "POST").count(),
+        24
+    );
+    let expected = [
+        ("web_search_call", "ws_"),
+        ("mcp_list_tools", "mcpl_"),
+        ("mcp_call", "mcp_"),
+        ("function_call", "fc_"),
+        ("function_call_output", "fc_"),
+        ("code_interpreter_call", "ci_"),
+        ("shell_call", "sh_"),
+        ("shell_call_output", "sho_"),
+        ("custom_tool_call", "ctc_"),
+        ("custom_tool_call_output", "ctco_"),
+        ("tool_search_call", "tsc_"),
+        ("tool_search_output", "tso_"),
+        ("multi_agent_call", "mac_"),
+        ("multi_agent_call_output", "maco_"),
+        ("agent_message", "amsg_"),
     ];
-    for (group, probes) in groups.iter().zip(turns.as_chunks::<8>().0) {
-        for (variant, pair) in probes.as_chunks::<2>().0.iter().enumerate() {
-            let request = &pair[0]["request"]["body"];
-            let created = terminal(&pair[0]["response"]);
-            let page = terminal(&pair[1]["response"]);
-            let omitted_id = variant % 2 == 1;
-            let omitted_status = variant >= 2;
-            let submitted: Vec<_> = request["input"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter(|item| group.iter().any(|(kind, _)| item["type"] == *kind))
-                .collect();
-            assert_eq!(submitted.len(), group.len());
-            for item in &submitted {
-                if omitted_id {
-                    assert!(item.get("id").is_none());
-                }
-                if omitted_status {
-                    assert!(item.get("status").is_none());
-                }
-            }
-            if group[0].0 == "code_interpreter_call" && omitted_id {
-                assert_eq!(pair[0]["response"]["status_code"], 400);
-                assert_eq!(created["error"]["code"], "missing_required_parameter");
-                assert_eq!(created["error"]["param"], "input[1].id");
-                assert_eq!(pair[1]["response"]["status_code"], 404);
-                continue;
-            }
-            assert_eq!(pair[0]["response"]["status_code"], 200, "{created}");
-            assert_eq!(pair[1]["response"]["status_code"], 200);
+    let mut seen = HashSet::new();
+    let mut requests = turns.iter();
+    while let Some(post) = requests.next() {
+        let request = &post["request"]["body"];
+        let created = terminal(&post["response"]);
+        assert_eq!(post["request"]["method"], "POST");
+        if request.get("previous_response_id").is_none() && request["multi_agent"]["enabled"] != true {
+            assert!(!request["tools"].as_array().unwrap().is_empty());
+        }
+        assert_eq!(post["response"]["status_code"], 200, "{created}");
+        assert_eq!(created["status"], "completed");
+        let mut data = Vec::new();
+        let mut after = Value::Null;
+        loop {
+            let listing = requests.next().expect("input-items page");
+            let page = terminal(&listing["response"]);
+            assert_eq!(listing["response"]["status_code"], 200, "{page}");
+            assert_eq!(listing["request"]["method"], "GET");
+            assert_eq!(listing["request"]["query_params"]["after"], after);
             assert_eq!(
-                pair[1]["request"]["path"],
+                listing["request"]["path"],
                 format!("/v1/responses/{}/input_items", created["id"].as_str().unwrap())
             );
-            let data = page["data"].as_array().unwrap();
-            assert_eq!(data.len(), request["input"].as_array().unwrap().len());
-            for ((kind, prefix), input) in group.iter().zip(submitted) {
-                let item = data.iter().find(|item| item["type"] == *kind).unwrap();
-                assert!(item["id"].as_str().unwrap().starts_with(prefix));
-                if input.get("id").is_some() {
-                    if *kind == "code_interpreter_call" {
-                        assert_ne!(item["id"], input["id"], "OpenAI reassigns the recorded code-call ID");
-                    } else {
-                        assert_eq!(item["id"], input["id"]);
-                    }
-                }
-                assert_eq!(item["call_id"], input["call_id"]);
-                if *kind == "mcp_list_tools" {
-                    assert!(item.get("status").is_none());
-                } else {
-                    let status = if omitted_id && matches!(*kind, "shell_call" | "custom_tool_call") {
-                        "in_progress"
-                    } else {
-                        "completed"
-                    };
-                    assert_eq!(item["status"], status, "{kind}: variant {variant}");
+            data.extend(page["data"].as_array().unwrap().iter().cloned());
+            if page["has_more"] == false {
+                break;
+            }
+            assert_ne!(page["last_id"], after);
+            after = page["last_id"].clone();
+            assert!(after.is_string());
+        }
+        for item in &data {
+            let Some(&(kind, prefix)) = expected.iter().find(|(kind, _)| item["type"] == *kind) else {
+                continue;
+            };
+            seen.insert(kind);
+            assert!(item["id"].as_str().unwrap().starts_with(prefix), "{item}");
+            if matches!(
+                kind,
+                "mcp_list_tools" | "multi_agent_call" | "multi_agent_call_output" | "agent_message"
+            ) {
+                assert!(item.get("status").is_none());
+            } else {
+                assert_eq!(item["status"], "completed", "{item}");
+            }
+        }
+        if let Some(previous) = request["previous_response_id"].as_str() {
+            let parent = turns
+                .iter()
+                .find(|turn| turn["response"]["body"]["id"] == previous)
+                .unwrap();
+            for output in parent["response"]["body"]["output"].as_array().unwrap() {
+                if expected.iter().any(|(kind, _)| output["type"] == *kind) {
+                    let listed = data.iter().find(|item| item["id"] == output["id"]).unwrap();
+                    assert_eq!(listed["type"], output["type"]);
+                    assert_eq!(listed["status"], output["status"]);
+                    assert_eq!(listed["call_id"], output["call_id"]);
                 }
             }
         }
     }
+    assert_eq!(seen, expected.iter().map(|(kind, _)| *kind).collect());
 }

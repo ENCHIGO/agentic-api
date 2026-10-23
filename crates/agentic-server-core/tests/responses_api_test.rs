@@ -126,11 +126,30 @@ fn error_metadata(body: &Value) -> Value {
 fn compare_items(expected: &[Value], actual: &[Value], ids: &mut HashMap<String, String>, location: &str) {
     assert_eq!(expected.len(), actual.len(), "{location}: item count");
     for (left, right) in expected.iter().zip(actual) {
-        assert_eq!(item_signature(left), item_signature(right), "{location}: item content");
+        let mut expected = item_signature(left);
+        let result_prefix = match left["type"].as_str() {
+            Some("function_call_output") => Some("fc_"),
+            Some("custom_tool_call_output") => Some("ctco_"),
+            Some("shell_call_output") => Some("sho_"),
+            _ => None,
+        };
+        if let Some(prefix) = result_prefix {
+            // Older gateway captures lack these fields. The refreshed OpenAI
+            // tool-execution reference establishes their required public values.
+            assert!(
+                right["id"].as_str().is_some_and(|id| id.starts_with(prefix)),
+                "{location}: result ID"
+            );
+            assert_eq!(right["status"], "completed", "{location}: result status");
+            if left["type"] != "function_call_output" && expected["status"].is_null() {
+                expected["status"] = json!("completed");
+            }
+        }
+        assert_eq!(expected, item_signature(right), "{location}: item content");
         let recorded = left["id"].as_str();
         let live = right["id"].as_str();
         // Function-result resource IDs are deferred; all other item identities remain required.
-        if left["type"] != "function_call_output" {
+        if recorded.is_some() || left["type"] != "function_call_output" {
             assert_eq!(recorded.is_some(), live.is_some(), "{location}: item ID presence");
         }
         if let (Some(recorded), Some(live)) = (recorded, live) {
@@ -355,7 +374,7 @@ async fn replay(scenario: &str, provider: &str, turns: &[Value]) {
             &client,
             &url,
             turn,
-            &reference[index],
+            if provider == "openai" { turn } else { &reference[index] },
             &mut ids,
             &format!("{scenario}/{provider} t{}", index + 1),
         )
@@ -426,4 +445,33 @@ replay_tests! {
     (replay_replayed_items_gateway, "replayed-items", "gateway"),
     (replay_replayed_items_stream_openai, "replayed-items-stream", "openai"),
     (replay_replayed_items_stream_gateway, "replayed-items-stream", "gateway"),
+}
+
+#[tokio::test]
+async fn replay_client_tool_input_items_gateway() {
+    let turns = cassette("tool-items", "gateway").expect("gateway tool-execution recording");
+    let mut selected = false;
+    let turns: Vec<_> = turns
+        .into_iter()
+        .filter(|turn| {
+            let body = &turn["request"]["body"];
+            if turn["request"]["method"] == "POST" && body["previous_response_id"].is_null() {
+                selected = body["tools"].as_array().is_some_and(|tools| {
+                    !tools.is_empty()
+                        && tools.iter().all(|tool| {
+                            matches!(
+                                tool["type"].as_str(),
+                                Some("function" | "custom" | "shell" | "tool_search" | "namespace")
+                            )
+                        })
+                });
+            }
+            selected
+        })
+        .collect();
+    assert_eq!(
+        turns.iter().filter(|turn| turn["request"]["method"] == "POST").count(),
+        13
+    );
+    replay("tool-items", "gateway", &turns).await;
 }

@@ -63,6 +63,8 @@ from httpx import AsyncClient
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_load
 
+from replay_old_cassettes import run_tool_items
+
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("cassette_proxy")
 
@@ -354,11 +356,13 @@ def _item_request(
     *,
     body: dict | None = None,
     params: dict | list[tuple[str, str]] | None = None,
+    headers: dict[str, str] | None = None,
     expected_status: int | None = 200,
 ) -> dict:
     """Send management requests through the shared recording proxy."""
     response = client.request(
-        method, f"{proxy_url}{path}", json=body, params=params, timeout=TIMEOUT
+        method, f"{proxy_url}{path}", json=body, params=params, headers=headers,
+        timeout=_http_timeout(proxy_client=True),
     )
     if expected_status is not None and response.status_code != expected_status:
         raise RuntimeError(
@@ -426,49 +430,10 @@ def run_items(
 ) -> None:
     """Record each fixed Conversation Items or Responses API request as a numbered step."""
     if scenario == "response-tool-items":
-        # Reuse the complete captured history, including reasoning dependencies
-        # and client-side results. Do not execute the tools again.
-        references = (
-            ("web_search/web-search-openai-reference-gpt-5.6-nonstreaming.yaml",
-             {"web_search_call"}),
-            ("mcp/mcp-openai-reference-counter-say-hello-gpt-4o-nonstreaming.yaml",
-             {"mcp_list_tools", "mcp_call"}),
-            ("code_interpreter/code-interpreter-openai-reference-gpt-5.6-nonstreaming.yaml",
-             {"code_interpreter_call"}),
-            ("shell/shell-openai-reference-success-gpt-5.6-nonstreaming.yaml",
-             {"shell_call", "shell_call_output"}),
-            ("custom_tool/custom-tool-openai-reference-gpt-5.6-nonstreaming.yaml",
-             {"custom_tool_call", "custom_tool_call_output"}),
-        )
-        for filename, item_types in references:
-            reference = yaml_load((Path(__file__).parent / filename).read_text(encoding="utf-8"))
-            history = []
-            for turn in reference["turns"]:
-                inputs = turn["request"]["body"].get("input", [])
-                if isinstance(inputs, str):
-                    history.append({"role": "user", "content": inputs})
-                else:
-                    history.extend(inputs)
-                history.extend(turn["response"]["body"]["output"])
-            if not item_types <= {item.get("type") for item in history}:
-                raise RuntimeError(f"{filename}: missing expected tool history")
-            for omitted in ((), ("id",), ("status",), ("id", "status")):
-                print(f"[tool history: {filename}; omitted fields: {omitted}]")
-                items = [{key: value for key, value in item.items()
-                          if item.get("type") not in item_types or key not in omitted}
-                         for item in history]
-                result = _item_request(
-                    client, proxy_url, "POST", "/v1/responses",
-                    body={"model": model, "store": True, "stream": False,
-                          "input": [*items, {"role": "user", "content":
-                              "This is completed tool history. Do not call tools. Reply only OK."}]},
-                    expected_status=None,
-                )
-                # Rejections are evidence too. Never substitute another
-                # response's history when admission fails.
-                response_id = result.get("id", "resp_missing")
-                _item_request(client, proxy_url, "GET", f"/v1/responses/{response_id}/input_items",
-                              params={"order": "asc", "limit": 100}, expected_status=None)
+        run_tool_items(client, proxy_url, model, send_request=_item_request,
+                       extract_tool_calls=_extract_tool_calls,
+                       load_tool_outputs=_load_tool_outputs_file,
+                       build_tool_output_input=_build_tool_output_input)
         return
     if scenario == "response-lifecycle":
         first = _item_response(client, proxy_url, model, "Reply with only SAPPHIRE.", stream=stream)
@@ -2210,7 +2175,7 @@ def main(
                           23 if items_scenario == "response-edge-cases" else
                           19 if items_scenario == "response-conversation" else
                           14 if items_scenario == "response-replayed-items" else
-                          40 if items_scenario == "response-tool-items" else
+                          48 if items_scenario == "response-tool-items" else
                           10 if items_scenario == "pagination" else
                           6 if items_scenario == "branch" else
                           19 if items_scenario == "edge-cases" else 5)
