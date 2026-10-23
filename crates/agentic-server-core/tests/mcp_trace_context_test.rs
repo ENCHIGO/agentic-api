@@ -146,16 +146,18 @@ async fn only_configured_mcp_servers_receive_the_calling_trace_and_baggage() {
     }
 
     // A baggage property that decodes to a control character is not a valid header
-    // value: the call still goes out, with the trace context and without that baggage.
+    // value: the call still goes out, with the trace context and with no baggage at all,
+    // not the configured value.
     let trace_id = call_under_root(&configured, "tenant=acme;note=%0Afoo").await;
     {
         let seen = seen.lock().unwrap();
         let headers = seen.headers.as_ref().expect("tools/call reached the server");
         let traceparent = headers.get("traceparent").unwrap().to_str().unwrap();
         assert_eq!(trace_id_of(traceparent), trace_id);
-        assert_eq!(
-            headers.get("baggage").expect("configured baggage is left as is"),
-            "tenant=stale"
+        assert!(
+            headers.get("baggage").is_none(),
+            "the configured baggage would misattribute the call: {:?}",
+            headers.get("baggage")
         );
     }
 

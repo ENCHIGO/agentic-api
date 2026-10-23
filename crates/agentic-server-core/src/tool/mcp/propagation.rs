@@ -108,22 +108,26 @@ impl W3cPropagation {
 
     /// Replace any configured propagation headers with this context.
     ///
-    /// A new `traceparent` also drops a configured `tracestate`, which belongs to
-    /// the trace being replaced. Values that are not valid header values (baggage
-    /// properties may decode to control characters) are skipped, so telemetry never
-    /// prevents the tool call.
+    /// Any field the caller's context carries removes the configured value first, and
+    /// a new `traceparent` also drops a configured `tracestate`, which belongs to the
+    /// trace being replaced. Values that are not valid header values (baggage
+    /// properties may decode to control characters) are then left out rather than
+    /// falling back to the configured value, which would misattribute the call, so
+    /// telemetry never prevents the tool call either.
     pub(crate) fn apply_to(self, headers: &mut HashMap<HeaderName, HeaderValue>) {
-        let valid = |value: Option<String>| value.and_then(|value| HeaderValue::try_from(value).ok());
-        if let Some(traceparent) = valid(self.traceparent) {
-            headers.insert(TRACEPARENT, traceparent);
-            headers.remove(&TRACESTATE);
-        }
-        if let Some(tracestate) = valid(self.tracestate) {
-            headers.insert(TRACESTATE, tracestate);
-        }
-        if let Some(baggage) = valid(self.baggage) {
-            headers.insert(BAGGAGE, baggage);
-        }
+        let mut replace = |name: HeaderName, value: Option<String>| {
+            let Some(value) = value else { return };
+            headers.remove(&name);
+            if name == TRACEPARENT {
+                headers.remove(&TRACESTATE);
+            }
+            if let Ok(value) = HeaderValue::try_from(value) {
+                headers.insert(name, value);
+            }
+        };
+        replace(TRACEPARENT, self.traceparent);
+        replace(TRACESTATE, self.tracestate);
+        replace(BAGGAGE, self.baggage);
     }
 }
 
@@ -209,8 +213,8 @@ mod tests {
     }
 
     #[test]
-    fn skips_values_that_are_not_valid_headers() {
-        let mut headers = HashMap::new();
+    fn invalid_values_are_left_out_instead_of_keeping_configured_ones() {
+        let mut headers = HashMap::from([(BAGGAGE, HeaderValue::from_static("tenant=stale"))]);
         W3cPropagation {
             traceparent: Some("00-current-current-01".to_owned()),
             tracestate: None,
