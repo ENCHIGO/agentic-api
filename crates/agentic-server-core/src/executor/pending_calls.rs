@@ -344,6 +344,7 @@ mod tests {
 
     fn custom_tool_call_output(call_id: &str) -> InputItem {
         InputItem::CustomToolCallOutput(CustomToolCallOutputMessage {
+            id: None,
             call_id: call_id.to_owned(),
             name: None,
             output: ToolCallOutput::Text(String::new()),

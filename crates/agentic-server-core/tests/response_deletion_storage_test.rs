@@ -1,11 +1,12 @@
-//! Deleting a stored response erases the history rows nothing else keeps, and leaves a
-//! conversation on its newest remaining response.
+//! Response CRUD uses existing history rows and foreign-key behavior.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use agentic_core::storage::models::conversation as conversation_model;
-use agentic_core::storage::{ConversationStore, DbPool, ResponseMetadata, ResponseStore, create_pool_with_schema};
+use agentic_core::storage::models::{conversation as conversation_model, response as response_model};
+use agentic_core::storage::{
+    ConversationStore, DbPool, ResponseMetadata, ResponseStore, StorageError, create_pool_with_schema,
+};
 use agentic_core::types::io::InOutItem;
 use serde_json::json;
 
@@ -51,18 +52,48 @@ async fn turn(store: &ResponseStore, id: &str, previous: Option<&str>) {
 }
 
 #[tokio::test]
-async fn deleting_a_response_erases_its_prompt_and_answer() {
+async fn deleting_a_response_removes_the_resource_and_keeps_history_rows() {
     let pool = pool().await;
     let store = ResponseStore::new(Arc::clone(&pool));
     turn(&store, "resp_only", None).await;
     assert_eq!(item_count(&pool).await, 2);
 
     store.delete("resp_only").await.unwrap();
-    assert_eq!(item_count(&pool).await, 0);
+    assert_eq!(item_count(&pool).await, 2);
+    assert!(store.get("resp_only").await.unwrap_err().is_not_found());
+    assert!(store.get_items("resp_only").await.unwrap_err().is_not_found());
+    assert!(store.delete("resp_only").await.unwrap_err().is_not_found());
 }
 
 #[tokio::test]
-async fn rows_another_response_lists_survive_until_the_last_one_is_deleted() {
+async fn response_deletion_uses_the_callers_transaction() {
+    let pool = pool().await;
+    let store = ResponseStore::new(Arc::clone(&pool));
+    turn(&store, "resp_parent", None).await;
+    turn(&store, "resp_child", Some("resp_parent")).await;
+    let original = store.get("resp_child").await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    assert!(response_model::delete_in_tx(&mut tx, "resp_parent").await.unwrap());
+    assert!(
+        response_model::get_in_tx(&mut tx, "resp_parent")
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let child = response_model::get_in_tx(&mut tx, "resp_child").await.unwrap().unwrap();
+    assert!(child.previous_response_id.is_none());
+    tx.rollback().await.unwrap();
+
+    assert!(store.get("resp_parent").await.is_ok());
+    let restored = store.get("resp_child").await.unwrap();
+    assert_eq!(restored.previous_response_id, original.previous_response_id);
+    assert_eq!(restored.history_item_ids, original.history_item_ids);
+    assert_eq!(item_count(&pool).await, 4);
+}
+
+#[tokio::test]
+async fn deleting_a_parent_removes_its_context_and_preserves_child_history_order() {
     let pool = pool().await;
     let store = ResponseStore::new(Arc::clone(&pool));
     // `resp_a` and `resp_b` are siblings: both inherit the parent's two rows.
@@ -71,19 +102,26 @@ async fn rows_another_response_lists_survive_until_the_last_one_is_deleted() {
     turn(&store, "resp_b", Some("resp_parent")).await;
     assert_eq!(item_count(&pool).await, 6);
 
-    // Children still list every parent row.
+    // OpenAI removes the deleted parent's context from descendant listings and continuations.
     store.delete("resp_parent").await.unwrap();
     assert_eq!(item_count(&pool).await, 6);
-    // Only `resp_a`'s own rows go; `resp_b` still lists the inherited ones.
+    // Deletion only removes response records, preserving all shared item rows.
     store.delete("resp_a").await.unwrap();
-    assert_eq!(item_count(&pool).await, 4);
-    assert_eq!(store.rehydrate("resp_b").await.unwrap().len(), 4);
+    assert_eq!(item_count(&pool).await, 6);
+    let rows = store.get_items("resp_b").await.unwrap();
+    let ids = store.get("resp_b").await.unwrap().history_item_ids;
+    assert_eq!(
+        rows.iter().map(|row| &row.id).collect::<Vec<_>>(),
+        ids.iter().collect::<Vec<_>>()
+    );
+    let history = store.rehydrate("resp_b").await.unwrap();
+    assert_eq!(history, vec![message("resp_b"), answer("msg_resp_b")]);
     store.delete("resp_b").await.unwrap();
-    assert_eq!(item_count(&pool).await, 0);
+    assert_eq!(item_count(&pool).await, 6);
 }
 
 #[tokio::test]
-async fn deleting_a_conversation_latest_response_keeps_its_items_and_previous_state() {
+async fn deleting_a_conversation_latest_response_clears_its_pointer_and_keeps_items() {
     let pool = pool().await;
     let conversations = ConversationStore::new(Arc::clone(&pool));
     let responses = ResponseStore::new(Arc::clone(&pool));
@@ -116,8 +154,8 @@ async fn deleting_a_conversation_latest_response_keeps_its_items_and_previous_st
     responses.delete("resp_second").await.unwrap();
     assert_eq!(
         latest(Arc::clone(&pool)).await.as_deref(),
-        Some("resp_first"),
-        "the conversation keeps the newest state it still has"
+        None,
+        "the existing foreign key clears the deleted pointer"
     );
     assert_eq!(
         item_count(&pool).await,
@@ -128,4 +166,40 @@ async fn deleting_a_conversation_latest_response_keeps_its_items_and_previous_st
     responses.delete("resp_first").await.unwrap();
     assert_eq!(latest(Arc::clone(&pool)).await, None);
     assert_eq!(item_count(&pool).await, 4);
+}
+
+#[tokio::test]
+async fn item_lookup_distinguishes_missing_empty_and_invalid_history() {
+    let pool = pool().await;
+    let store = ResponseStore::new(Arc::clone(&pool));
+    assert!(store.get_items("resp_missing").await.unwrap_err().is_not_found());
+    store
+        .persist("resp_empty", None, vec![], &ResponseMetadata::default())
+        .await
+        .unwrap();
+    assert!(store.get_items("resp_empty").await.unwrap().is_empty());
+    sqlx::query("UPDATE responses SET history_item_ids = NULL WHERE id = 'resp_empty'")
+        .execute(pool.as_ref())
+        .await
+        .unwrap();
+    assert!(store.get_items("resp_empty").await.unwrap().is_empty());
+    for invalid in ["not-json", "null", "{}"] {
+        sqlx::query("UPDATE responses SET history_item_ids = $1 WHERE id = 'resp_empty'")
+            .bind(invalid)
+            .execute(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(matches!(
+            store.get_items("resp_empty").await,
+            Err(StorageError::InvalidResponseHistory { .. })
+        ));
+    }
+    sqlx::query("UPDATE responses SET history_item_ids = '[\"item_missing\"]' WHERE id = 'resp_empty'")
+        .execute(pool.as_ref())
+        .await
+        .unwrap();
+    assert!(matches!(
+        store.get_items("resp_empty").await,
+        Err(StorageError::InvalidHistoryItem { .. })
+    ));
 }

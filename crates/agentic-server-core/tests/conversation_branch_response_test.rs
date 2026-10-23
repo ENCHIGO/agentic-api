@@ -8,7 +8,7 @@ use std::sync::Arc;
 use agentic_core::executor::ExecuteRequest;
 use agentic_core::executor::session::ResponseSession;
 use agentic_core::types::RequestPayload;
-use agentic_core::types::conversations::{ItemLimit, ItemOrder, ItemPage};
+use agentic_core::types::io::{ItemOrder, ItemPage};
 use either::Either;
 use futures::StreamExt;
 use serde_json::Value;
@@ -60,6 +60,11 @@ async fn assert_branch_is_detached(streaming: bool) {
         env!("CARGO_MANIFEST_DIR")
     ));
     let turns = responses_turns(&cassette);
+    let page = ItemPage {
+        limit: 100.try_into().unwrap(),
+        after: None,
+        order: ItemOrder::Asc,
+    };
     // Exercise durable lookup directly and through a transient session.
     for use_session in [false, true] {
         for store in [false, true] {
@@ -96,7 +101,7 @@ async fn assert_branch_is_detached(streaming: bool) {
             let before = fixture
                 .exec_ctx
                 .conv_handler
-                .list_items("default_tenant", &conversation_id, all_ascending())
+                .list_items("default_tenant", &conversation_id, page)
                 .await
                 .unwrap();
             let parent_id = parent["id"].as_str().unwrap();
@@ -119,7 +124,7 @@ async fn assert_branch_is_detached(streaming: bool) {
             let after = fixture
                 .exec_ctx
                 .conv_handler
-                .list_items("default_tenant", &conversation_id, all_ascending())
+                .list_items("default_tenant", &conversation_id, page)
                 .await
                 .unwrap();
             assert_eq!(
@@ -150,12 +155,4 @@ async fn previous_response_branch_omits_conversation_in_json_and_retrieval() {
 #[tokio::test]
 async fn previous_response_branch_omits_conversation_in_every_stream_response() {
     assert_branch_is_detached(true).await;
-}
-
-fn all_ascending() -> ItemPage<'static> {
-    ItemPage {
-        limit: ItemLimit::try_from(100).unwrap(),
-        after: None,
-        order: ItemOrder::Asc,
-    }
 }

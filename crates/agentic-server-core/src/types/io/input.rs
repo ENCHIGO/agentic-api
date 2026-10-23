@@ -271,6 +271,8 @@ impl TryFrom<&ToolSearchCall> for InputToolSearchCall {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ToolSearchOutputMessage {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     #[serde(deserialize_with = "deserialize_non_blank_string")]
     pub call_id: String,
     #[serde(default)]
@@ -295,6 +297,8 @@ pub struct CompactionItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CustomToolCallOutputMessage {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     pub call_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,

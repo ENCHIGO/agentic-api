@@ -10,8 +10,9 @@ use super::types::{
     ConversationData, ConversationSnapshot, ConversationVersion, ResponseMetadata, StorageError, StoreResult,
 };
 use crate::storage::{DbTransaction, Item};
-use crate::types::conversations::{ConversationMetadata, ItemOrder};
+use crate::types::conversations::ConversationMetadata;
 use crate::types::io::InOutItem;
+use crate::types::io::ItemOrder;
 use crate::utils::common::{serialize_to_string, uuid7_str};
 
 /// Conversation storage operations.
@@ -205,7 +206,8 @@ impl ConversationStore {
     ) -> StoreResult<()> {
         let pool = self.pool()?;
 
-        let items_ = item::serialize_new_items(new_items, item::ItemSource::ResponseHistory)?;
+        let items_ = item::serialize_new_items(new_items)?;
+        let metadata_json = String::try_from(metadata)?;
 
         let mut tx = pool.begin().await?;
 
@@ -228,8 +230,7 @@ impl ConversationStore {
                 });
             }
         }
-        let written = item::create_in_tx(&mut tx, items_, Some(conversation_id)).await?;
-        let metadata_json = metadata.serialize_with_output_rows(&written)?;
+        item::create_in_tx(&mut tx, items_, Some(conversation_id)).await?;
         // A response branch must see the conversation as it existed at this turn,
         // including manually added items that may later be detached or deleted.
         let history_item_ids = item::ids_for_conversation_in_tx(&mut tx, conversation_id).await?;
@@ -261,7 +262,10 @@ impl ConversationStore {
         metadata: Option<ConversationMetadata>,
         initial_items: Vec<InOutItem>,
     ) -> StoreResult<ConversationData> {
-        let items = item::serialize_new_items(initial_items, item::ItemSource::ConversationApi)?;
+        for (index, item) in initial_items.iter().enumerate() {
+            item.validate_client_id(format!("items[{index}].id"))?;
+        }
+        let items = item::serialize_new_items(initial_items)?;
         let metadata = metadata.map(|value| serialize_to_string(&value)).transpose()?;
         let id = uuid7_str("conv_");
         let mut tx = self.pool()?.begin().await?;
@@ -320,14 +324,13 @@ impl ConversationStore {
     /// # Errors
     /// Returns an error if the resource is missing or persistence fails.
     pub async fn create_items(&self, tenant_id: &str, id: &str, items: Vec<InOutItem>) -> StoreResult<Vec<Item>> {
-        let items = item::serialize_new_items(items, item::ItemSource::ConversationApi)?;
+        for (index, item) in items.iter().enumerate() {
+            item.validate_client_id(format!("items[{index}].id"))?;
+        }
+        let items = item::serialize_new_items(items)?;
         let mut tx = self.pool()?.begin().await?;
         lock_owned(&mut tx, tenant_id, id).await?;
-        let rows: Vec<Item> = item::create_in_tx(&mut tx, items, Some(id))
-            .await?
-            .into_iter()
-            .map(|written| written.row)
-            .collect();
+        let rows = item::create_in_tx(&mut tx, items, Some(id)).await?;
         if !rows.is_empty() {
             conversation::bump_revision_in_tx(&mut tx, id).await?;
         }

@@ -3,9 +3,10 @@
 use crate::storage::{
     ConversationData, ConversationSnapshot, ConversationStore, ConversationVersion, ResponseMetadata, StorageError,
 };
-use crate::types::conversations::{ConversationMetadata, ItemPage, ItemResponse, ListItemsResponse};
+use crate::types::conversations::ConversationMetadata;
 use crate::types::io::InOutItem;
 use crate::types::io::OutputItem;
+use crate::types::io::{ItemPage, ListItemsResponse};
 
 use super::CommittedResponse;
 use crate::executor::error::{ExecutorError, ExecutorResult};
@@ -194,7 +195,7 @@ impl ConversationHandler {
         tenant_id: &str,
         conversation_id: &str,
         items: Vec<InOutItem>,
-    ) -> ExecutorResult<Vec<ItemResponse>> {
+    ) -> ExecutorResult<Vec<InOutItem>> {
         if items.is_empty() || items.len() > 20 {
             return Err(ExecutorError::InvalidRequest(
                 "items must contain between 1 and 20 items".into(),
@@ -211,7 +212,7 @@ impl ConversationHandler {
         let mut item_responses = Vec::with_capacity(created.len());
         for db_item in created {
             let conversation_item = InOutItem::try_from(&db_item)?;
-            item_responses.push(ItemResponse::new(db_item.public_id().to_owned(), conversation_item));
+            item_responses.push(conversation_item.into_public(db_item.public_id().to_owned()));
         }
 
         Ok(item_responses)
@@ -240,7 +241,7 @@ impl ConversationHandler {
         let mut item_responses = Vec::with_capacity(items.len());
         for db_item in items {
             let conversation_item = InOutItem::try_from(&db_item)?;
-            item_responses.push(ItemResponse::new(db_item.public_id().to_owned(), conversation_item));
+            item_responses.push(conversation_item.into_public(db_item.public_id().to_owned()));
         }
 
         Ok(ListItemsResponse::new(item_responses, has_more))
@@ -255,7 +256,7 @@ impl ConversationHandler {
         tenant_id: &str,
         conversation_id: &str,
         item_id: &str,
-    ) -> ExecutorResult<ItemResponse> {
+    ) -> ExecutorResult<InOutItem> {
         let db_item = self
             .store
             .retrieve_item(tenant_id, conversation_id, item_id)
@@ -263,7 +264,7 @@ impl ConversationHandler {
             .map_err(ExecutorError::Storage)?;
 
         let conversation_item = InOutItem::try_from(&db_item)?;
-        Ok(ItemResponse::new(db_item.public_id().to_owned(), conversation_item))
+        Ok(conversation_item.into_public(db_item.public_id().to_owned()))
     }
 
     /// Deletes an item by ID, returning the updated conversation.
@@ -299,7 +300,6 @@ impl ConversationHandler {
             effective_tools: ctx.enriched_request.tools.take(),
             tool_search_loaded_tools: None,
             response_snapshot: None,
-            output_item_ids: None,
             effective_tool_choice: ctx
                 .original_request
                 .tool_choice

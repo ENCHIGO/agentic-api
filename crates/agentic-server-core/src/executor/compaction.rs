@@ -462,6 +462,7 @@ mod tests {
 
     fn custom_image_output(encoded_bytes: usize) -> InputItem {
         InputItem::CustomToolCallOutput(CustomToolCallOutputMessage {
+            id: None,
             call_id: "call_view_image".to_owned(),
             name: Some("view_image".to_owned()),
             output: ToolCallOutput::Content(vec![ToolOutputContent::InputImage(inline_image(encoded_bytes))]),
@@ -1265,7 +1266,6 @@ mod tests {
                     effective_tools: None,
                     tool_search_loaded_tools: None,
                     response_snapshot: None,
-                    output_item_ids: None,
                     effective_tool_choice: crate::ToolChoice::Auto,
                     effective_instructions: None,
                 },

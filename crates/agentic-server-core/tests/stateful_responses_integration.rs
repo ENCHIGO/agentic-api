@@ -1001,7 +1001,7 @@ async fn tool_search_store_false_manual_replay_completes_without_reusable_respon
         .get(&lookup_ctx)
         .await
         .expect_err("store:false response ID must not be reusable");
-    assert!(matches!(error, agentic_core::executor::ExecutorError::Storage(source) if source.is_not_found()));
+    assert!(matches!(error, ExecutorError::PreviousResponseNotFound { .. }));
 }
 
 #[tokio::test]

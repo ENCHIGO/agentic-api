@@ -3,10 +3,8 @@
 use super::{IdPairs, Turn, Value, cassette, compare_value, remap_error_message};
 use agentic_core::executor::{ConversationHandler, ExecutorError};
 use agentic_core::storage::{ConversationData, ConversationStore, create_pool_with_schema};
-use agentic_core::types::conversations::{
-    ConversationResponse, CreateConversationRequest, CreateItemRequest, ItemLimit, ItemOrder, ItemPage,
-    ListItemsResponse,
-};
+use agentic_core::types::conversations::{ConversationResponse, CreateConversationRequest, CreateItemRequest};
+use agentic_core::types::io::{ItemLimit, ItemOrder, ItemPage, ListItemsResponse};
 
 pub(super) fn remap_ids(value: &Value, ids: &IdPairs) -> Value {
     match value {

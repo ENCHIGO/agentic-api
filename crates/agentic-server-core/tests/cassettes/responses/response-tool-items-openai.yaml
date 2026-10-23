@@ -1,0 +1,3739 @@
+turns:
+- filename: t1
+  request:
+    body:
+      input:
+      - content: Use web search to search for the exact query "potato", then summarize
+          the result in one sentence.
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqbJqT3jzQZaHOg1Wsz1ch-PsZdMKOBETTJuBoEWxvKF4Y1V6NzmWHE7zovHk_Xdevg5u1JDQszrvMKmvJMnlTREBqxR4bt9roowxwJj9M3TM1SJ__-ZzpzHtbk-d6_io_xscOxBtrzx8tvVxyCMBU-VvdBJC5CG4IWoEPdIUDAoyczGfRTSlZKDpVZLKJRxI_aw0G1UxBMl_W8UvGtCjfzs9XxiNp2CWA65YPZX2rGTmRN9_8AIJyEXMkm3d1Pvp45gYGZLYC-tRSrAiM9rD5F2Xej6LG_2rkcLRFLgWZBz5typRRWKAw9Yi0D3iuAn-Z4jx3EkK-gJWKKWy6_EWJw1pJbOsSLTu2wgItX5RGASQOpfgOtTpOcfoC1ci6yzM0DQ6ltEcoO8Uy66J3YXT83xTOMPxsvV7fmhGItVyr8SLqn9j8WzjQ7V1XHDNU3tOVMkqrEuyhiDbVIHri9bk--aaGE2E7evhMHfmZilx3GQ-2vX1zlkGCL4ooT7Udefqx8Ot7BmEC8uInPGo0AbmwXdKoucX_5sqEH6foLPSmr1yj6dDxUDzxhlsPkp_EohI1EBWv44YNUxv0Tz0NFgZp9BDQvLg6RBPOl1cjJNR7tw8VyBoHCBQ7bRbn8DPhgjnxWzsUmx0cdDkXmtI8umiaH7CcE688ns9MJBnRzEMeWSsoYszLGb1BTdT5m24eDD5wmNf27NFE_srdQUtQWQk7ZTrLUQAG9WnsNBTf29hGv478sT8fcW5DM9n1WQuf84quOc8HqOe6s2Mux3QVfJwHKFP6WEzqOFPKwTsX-5j_M-G4x0RWB4U_jjh2Smd-A6JoQf7pp1cTF-2I0pVSNl_WginPo1iSNE8NVQ2PAkl4rbiO-ee-jCW0BL46WNmZyNRDd9GxnVitwH2I1eQ3BldI5adaNHTIIxS5fH_KjRSp80T1wzJNSDARtrJ7wcAe9OpRwXbb0FFBYVeUJN0UeivYX5L6pcHE7nj0OPTGkRrWYxqiccSMETmiiLT0RSfPf0lkNZGg26cn724_W4ZtRBCEl8EpDg==
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        id: ws_05b26e957aa7a7d7006a6c9a8d934c8199b6e86ca1372c4621
+        status: completed
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748959
+      created_at: 1792748957
+      error: null
+      frequency_penalty: 0.0
+      id: resp_05b26e957aa7a7d7006adb2d9d970c81998accadbe8276534d
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_05b26e957aa7a7d7006adb2d9f6e908199a976fea1705f7adf
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 4236
+        input_tokens_details:
+          cache_write_tokens: 4233
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 4241
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t2
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_05b26e957aa7a7d7006adb2d9d970c81998accadbe8276534d/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Use web search to search for the exact query "potato", then summarize
+            the result in one sentence.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2d9dacb48199a4d8ce6109eb9c66
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        id: ws_05b26e957aa7a7d7006a6c9a8d934c8199b6e86ca1372c4621
+        status: completed
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2d9dacf4819981704ba1d4fb0546
+        role: user
+        status: completed
+        type: message
+      first_id: msg_05b26e957aa7a7d7006adb2d9dacb48199a4d8ce6109eb9c66
+      has_more: false
+      last_id: msg_05b26e957aa7a7d7006adb2d9dacf4819981704ba1d4fb0546
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t3
+  request:
+    body:
+      input:
+      - content: Use web search to search for the exact query "potato", then summarize
+          the result in one sentence.
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqbJqT3jzQZaHOg1Wsz1ch-PsZdMKOBETTJuBoEWxvKF4Y1V6NzmWHE7zovHk_Xdevg5u1JDQszrvMKmvJMnlTREBqxR4bt9roowxwJj9M3TM1SJ__-ZzpzHtbk-d6_io_xscOxBtrzx8tvVxyCMBU-VvdBJC5CG4IWoEPdIUDAoyczGfRTSlZKDpVZLKJRxI_aw0G1UxBMl_W8UvGtCjfzs9XxiNp2CWA65YPZX2rGTmRN9_8AIJyEXMkm3d1Pvp45gYGZLYC-tRSrAiM9rD5F2Xej6LG_2rkcLRFLgWZBz5typRRWKAw9Yi0D3iuAn-Z4jx3EkK-gJWKKWy6_EWJw1pJbOsSLTu2wgItX5RGASQOpfgOtTpOcfoC1ci6yzM0DQ6ltEcoO8Uy66J3YXT83xTOMPxsvV7fmhGItVyr8SLqn9j8WzjQ7V1XHDNU3tOVMkqrEuyhiDbVIHri9bk--aaGE2E7evhMHfmZilx3GQ-2vX1zlkGCL4ooT7Udefqx8Ot7BmEC8uInPGo0AbmwXdKoucX_5sqEH6foLPSmr1yj6dDxUDzxhlsPkp_EohI1EBWv44YNUxv0Tz0NFgZp9BDQvLg6RBPOl1cjJNR7tw8VyBoHCBQ7bRbn8DPhgjnxWzsUmx0cdDkXmtI8umiaH7CcE688ns9MJBnRzEMeWSsoYszLGb1BTdT5m24eDD5wmNf27NFE_srdQUtQWQk7ZTrLUQAG9WnsNBTf29hGv478sT8fcW5DM9n1WQuf84quOc8HqOe6s2Mux3QVfJwHKFP6WEzqOFPKwTsX-5j_M-G4x0RWB4U_jjh2Smd-A6JoQf7pp1cTF-2I0pVSNl_WginPo1iSNE8NVQ2PAkl4rbiO-ee-jCW0BL46WNmZyNRDd9GxnVitwH2I1eQ3BldI5adaNHTIIxS5fH_KjRSp80T1wzJNSDARtrJ7wcAe9OpRwXbb0FFBYVeUJN0UeivYX5L6pcHE7nj0OPTGkRrWYxqiccSMETmiiLT0RSfPf0lkNZGg26cn724_W4ZtRBCEl8EpDg==
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        status: completed
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748962
+      created_at: 1792748960
+      error: null
+      frequency_penalty: 0.0
+      id: resp_05b26e957aa7a7d7006adb2da053808199b740ff50c3547bf6
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_05b26e957aa7a7d7006adb2da25bb08199b684516b0411186b
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 171
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 176
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t4
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_05b26e957aa7a7d7006adb2da053808199b740ff50c3547bf6/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Use web search to search for the exact query "potato", then summarize
+            the result in one sentence.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2da064748199869ee22f22949892
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        id: ws_05b26e957aa7a7d7006adb2da064b481998ca513fb543f498d
+        status: completed
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2da064d48199a2637188cc9a6538
+        role: user
+        status: completed
+        type: message
+      first_id: msg_05b26e957aa7a7d7006adb2da064748199869ee22f22949892
+      has_more: false
+      last_id: msg_05b26e957aa7a7d7006adb2da064d48199a2637188cc9a6538
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t5
+  request:
+    body:
+      input:
+      - content: Use web search to search for the exact query "potato", then summarize
+          the result in one sentence.
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqbJqT3jzQZaHOg1Wsz1ch-PsZdMKOBETTJuBoEWxvKF4Y1V6NzmWHE7zovHk_Xdevg5u1JDQszrvMKmvJMnlTREBqxR4bt9roowxwJj9M3TM1SJ__-ZzpzHtbk-d6_io_xscOxBtrzx8tvVxyCMBU-VvdBJC5CG4IWoEPdIUDAoyczGfRTSlZKDpVZLKJRxI_aw0G1UxBMl_W8UvGtCjfzs9XxiNp2CWA65YPZX2rGTmRN9_8AIJyEXMkm3d1Pvp45gYGZLYC-tRSrAiM9rD5F2Xej6LG_2rkcLRFLgWZBz5typRRWKAw9Yi0D3iuAn-Z4jx3EkK-gJWKKWy6_EWJw1pJbOsSLTu2wgItX5RGASQOpfgOtTpOcfoC1ci6yzM0DQ6ltEcoO8Uy66J3YXT83xTOMPxsvV7fmhGItVyr8SLqn9j8WzjQ7V1XHDNU3tOVMkqrEuyhiDbVIHri9bk--aaGE2E7evhMHfmZilx3GQ-2vX1zlkGCL4ooT7Udefqx8Ot7BmEC8uInPGo0AbmwXdKoucX_5sqEH6foLPSmr1yj6dDxUDzxhlsPkp_EohI1EBWv44YNUxv0Tz0NFgZp9BDQvLg6RBPOl1cjJNR7tw8VyBoHCBQ7bRbn8DPhgjnxWzsUmx0cdDkXmtI8umiaH7CcE688ns9MJBnRzEMeWSsoYszLGb1BTdT5m24eDD5wmNf27NFE_srdQUtQWQk7ZTrLUQAG9WnsNBTf29hGv478sT8fcW5DM9n1WQuf84quOc8HqOe6s2Mux3QVfJwHKFP6WEzqOFPKwTsX-5j_M-G4x0RWB4U_jjh2Smd-A6JoQf7pp1cTF-2I0pVSNl_WginPo1iSNE8NVQ2PAkl4rbiO-ee-jCW0BL46WNmZyNRDd9GxnVitwH2I1eQ3BldI5adaNHTIIxS5fH_KjRSp80T1wzJNSDARtrJ7wcAe9OpRwXbb0FFBYVeUJN0UeivYX5L6pcHE7nj0OPTGkRrWYxqiccSMETmiiLT0RSfPf0lkNZGg26cn724_W4ZtRBCEl8EpDg==
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        id: ws_05b26e957aa7a7d7006a6c9a8d934c8199b6e86ca1372c4621
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748963
+      created_at: 1792748963
+      error: null
+      frequency_penalty: 0.0
+      id: resp_05b26e957aa7a7d7006adb2da34de08199856a35d7aa499a1b
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_05b26e957aa7a7d7006adb2da3dd5c8199bb8b1add72e05e63
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 4236
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 4233
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 4241
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t6
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_05b26e957aa7a7d7006adb2da34de08199856a35d7aa499a1b/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Use web search to search for the exact query "potato", then summarize
+            the result in one sentence.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2da359588199a8eac6505d8c2b31
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        id: ws_05b26e957aa7a7d7006a6c9a8d934c8199b6e86ca1372c4621
+        status: completed
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2da3598c8199a352ec754ed716e8
+        role: user
+        status: completed
+        type: message
+      first_id: msg_05b26e957aa7a7d7006adb2da359588199a8eac6505d8c2b31
+      has_more: false
+      last_id: msg_05b26e957aa7a7d7006adb2da3598c8199a352ec754ed716e8
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t7
+  request:
+    body:
+      input:
+      - content: Use web search to search for the exact query "potato", then summarize
+          the result in one sentence.
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqbJqT3jzQZaHOg1Wsz1ch-PsZdMKOBETTJuBoEWxvKF4Y1V6NzmWHE7zovHk_Xdevg5u1JDQszrvMKmvJMnlTREBqxR4bt9roowxwJj9M3TM1SJ__-ZzpzHtbk-d6_io_xscOxBtrzx8tvVxyCMBU-VvdBJC5CG4IWoEPdIUDAoyczGfRTSlZKDpVZLKJRxI_aw0G1UxBMl_W8UvGtCjfzs9XxiNp2CWA65YPZX2rGTmRN9_8AIJyEXMkm3d1Pvp45gYGZLYC-tRSrAiM9rD5F2Xej6LG_2rkcLRFLgWZBz5typRRWKAw9Yi0D3iuAn-Z4jx3EkK-gJWKKWy6_EWJw1pJbOsSLTu2wgItX5RGASQOpfgOtTpOcfoC1ci6yzM0DQ6ltEcoO8Uy66J3YXT83xTOMPxsvV7fmhGItVyr8SLqn9j8WzjQ7V1XHDNU3tOVMkqrEuyhiDbVIHri9bk--aaGE2E7evhMHfmZilx3GQ-2vX1zlkGCL4ooT7Udefqx8Ot7BmEC8uInPGo0AbmwXdKoucX_5sqEH6foLPSmr1yj6dDxUDzxhlsPkp_EohI1EBWv44YNUxv0Tz0NFgZp9BDQvLg6RBPOl1cjJNR7tw8VyBoHCBQ7bRbn8DPhgjnxWzsUmx0cdDkXmtI8umiaH7CcE688ns9MJBnRzEMeWSsoYszLGb1BTdT5m24eDD5wmNf27NFE_srdQUtQWQk7ZTrLUQAG9WnsNBTf29hGv478sT8fcW5DM9n1WQuf84quOc8HqOe6s2Mux3QVfJwHKFP6WEzqOFPKwTsX-5j_M-G4x0RWB4U_jjh2Smd-A6JoQf7pp1cTF-2I0pVSNl_WginPo1iSNE8NVQ2PAkl4rbiO-ee-jCW0BL46WNmZyNRDd9GxnVitwH2I1eQ3BldI5adaNHTIIxS5fH_KjRSp80T1wzJNSDARtrJ7wcAe9OpRwXbb0FFBYVeUJN0UeivYX5L6pcHE7nj0OPTGkRrWYxqiccSMETmiiLT0RSfPf0lkNZGg26cn724_W4ZtRBCEl8EpDg==
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748966
+      created_at: 1792748965
+      error: null
+      frequency_penalty: 0.0
+      id: resp_05b26e957aa7a7d7006adb2da4f3e08199b8b47b97e8b424f2
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_05b26e957aa7a7d7006adb2da69ec48199b82ee584a0e15613
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 171
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 176
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t8
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_05b26e957aa7a7d7006adb2da4f3e08199b8b47b97e8b424f2/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Use web search to search for the exact query "potato", then summarize
+            the result in one sentence.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2da514908199bb562e550dee91d4
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_05b26e957aa7a7d7006a6c9a8d1ad4819995cfa8e832d7f52b
+        summary: []
+        type: reasoning
+      - action:
+          queries:
+          - potato
+          query: potato
+          type: search
+        id: ws_05b26e957aa7a7d7006adb2da514c88199933a174038b40e25
+        status: completed
+        type: web_search_call
+      - content:
+        - annotations:
+          - end_index: 265
+            start_index: 173
+            title: POTATO Definition & Meaning - Merriam-Webster
+            type: url_citation
+            url: https://www.merriam-webster.com/dictionary/potato?utm_source=openai
+          logprobs: []
+          text: Search results for **“potato”** primarily define it as an edible,
+            starchy underground tuber, alongside cooking guides, recipes, agricultural
+            resources, and related content. ([merriam-webster.com](https://www.merriam-webster.com/dictionary/potato?utm_source=openai))
+          type: output_text
+        id: msg_05b26e957aa7a7d7006a6c9a92bcc081998faad7bf98c9b051
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_05b26e957aa7a7d7006adb2da514ec8199acfefda77727580e
+        role: user
+        status: completed
+        type: message
+      first_id: msg_05b26e957aa7a7d7006adb2da514908199bb562e550dee91d4
+      has_more: false
+      last_id: msg_05b26e957aa7a7d7006adb2da514ec8199acfefda77727580e
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t9
+  request:
+    body:
+      input:
+      - content: Call counter__say_hello exactly once with {}. Do not call any other
+          tool. Return exactly MCP_SAYS=hello.
+        role: user
+      - id: mcpl_0e3fe24990ca0d3e006a6b125b02b8819b85656b1528326216
+        server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        id: mcp_0e3fe24990ca0d3e006a6b125cb0e4819bb4e6ce6bf14fdb4a
+        name: say_hello
+        output: hello
+        server_label: counter
+        status: completed
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748968
+      created_at: 1792748967
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0e3fe24990ca0d3e006adb2da7df58819b990cf42bfab87be1
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006adb2da8c144819b8360636febb90b2b
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 83
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 88
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t10
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0e3fe24990ca0d3e006adb2da7df58819b990cf42bfab87be1/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Call counter__say_hello exactly once with {}. Do not call any other
+            tool. Return exactly MCP_SAYS=hello.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2da7f954819ba2743cd71418c47d
+        role: user
+        status: completed
+        type: message
+      - id: mcpl_0e3fe24990ca0d3e006a6b125b02b8819b85656b1528326216
+        server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        id: mcp_0e3fe24990ca0d3e006a6b125cb0e4819bb4e6ce6bf14fdb4a
+        name: say_hello
+        output: hello
+        server_label: counter
+        status: completed
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2da7f9a0819b9be58b3eacf1bc65
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0e3fe24990ca0d3e006adb2da7f954819ba2743cd71418c47d
+      has_more: false
+      last_id: msg_0e3fe24990ca0d3e006adb2da7f9a0819b9be58b3eacf1bc65
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t11
+  request:
+    body:
+      input:
+      - content: Call counter__say_hello exactly once with {}. Do not call any other
+          tool. Return exactly MCP_SAYS=hello.
+        role: user
+      - server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        name: say_hello
+        output: hello
+        server_label: counter
+        status: completed
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748970
+      created_at: 1792748970
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0e3fe24990ca0d3e006adb2da9de74819b9ef63ece99c3d3db
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006adb2daa9ce4819b88d72e9aaab847b3
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 63
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 68
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t12
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0e3fe24990ca0d3e006adb2da9de74819b9ef63ece99c3d3db/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Call counter__say_hello exactly once with {}. Do not call any other
+            tool. Return exactly MCP_SAYS=hello.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2da9fcdc819bbb9f2cce171f5dfd
+        role: user
+        status: completed
+        type: message
+      - id: mcpl_0e3fe24990ca0d3e006adb2da9fcfc819b855f39c543a9783d
+        server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        id: mcp_0e3fe24990ca0d3e006adb2da9fd14819bb77d3fa6f284c22d
+        name: say_hello
+        output: hello
+        server_label: counter
+        status: completed
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2daa007c819b9c0d4284e94e36bd
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0e3fe24990ca0d3e006adb2da9fcdc819bbb9f2cce171f5dfd
+      has_more: false
+      last_id: msg_0e3fe24990ca0d3e006adb2daa007c819b9c0d4284e94e36bd
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t13
+  request:
+    body:
+      input:
+      - content: Call counter__say_hello exactly once with {}. Do not call any other
+          tool. Return exactly MCP_SAYS=hello.
+        role: user
+      - id: mcpl_0e3fe24990ca0d3e006a6b125b02b8819b85656b1528326216
+        server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        id: mcp_0e3fe24990ca0d3e006a6b125cb0e4819bb4e6ce6bf14fdb4a
+        name: say_hello
+        output: hello
+        server_label: counter
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748972
+      created_at: 1792748971
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0e3fe24990ca0d3e006adb2dabd1c8819bb1f382c542666508
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006adb2dac9304819b8dffeddfac44ab36
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 83
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 88
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t14
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0e3fe24990ca0d3e006adb2dabd1c8819bb1f382c542666508/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Call counter__say_hello exactly once with {}. Do not call any other
+            tool. Return exactly MCP_SAYS=hello.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2dabe320819bb59a1cae672a60eb
+        role: user
+        status: completed
+        type: message
+      - id: mcpl_0e3fe24990ca0d3e006a6b125b02b8819b85656b1528326216
+        server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        id: mcp_0e3fe24990ca0d3e006a6b125cb0e4819bb4e6ce6bf14fdb4a
+        name: say_hello
+        output: hello
+        server_label: counter
+        status: completed
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2dabe364819bb1fecc1c05711c88
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0e3fe24990ca0d3e006adb2dabe320819bb59a1cae672a60eb
+      has_more: false
+      last_id: msg_0e3fe24990ca0d3e006adb2dabe364819bb1fecc1c05711c88
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t15
+  request:
+    body:
+      input:
+      - content: Call counter__say_hello exactly once with {}. Do not call any other
+          tool. Return exactly MCP_SAYS=hello.
+        role: user
+      - server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        name: say_hello
+        output: hello
+        server_label: counter
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748974
+      created_at: 1792748973
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0e3fe24990ca0d3e006adb2dadbfa4819b858da14bdd89b375
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006adb2daea174819bb33ffb88a04df474
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 63
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 68
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t16
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0e3fe24990ca0d3e006adb2dadbfa4819b858da14bdd89b375/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Call counter__say_hello exactly once with {}. Do not call any other
+            tool. Return exactly MCP_SAYS=hello.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2dadd7f4819b8d15e120b8a6629e
+        role: user
+        status: completed
+        type: message
+      - id: mcpl_0e3fe24990ca0d3e006adb2dadd810819baffca9debc56b778
+        server_label: counter
+        tools:
+        - annotations:
+            read_only: false
+          description: Say hello to the client
+          input_schema:
+            properties: {}
+            type: object
+          name: say_hello
+        type: mcp_list_tools
+      - approval_request_id: null
+        arguments: '{}'
+        error: null
+        id: mcp_0e3fe24990ca0d3e006adb2dadd854819b9340cdf6b97c764e
+        name: say_hello
+        output: hello
+        server_label: counter
+        status: completed
+        type: mcp_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: MCP_SAYS=hello
+          type: output_text
+        id: msg_0e3fe24990ca0d3e006a6b125d62b8819ba94430a4f73a8cc1
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0e3fe24990ca0d3e006adb2dadd87c819bab391e666aa99d02
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0e3fe24990ca0d3e006adb2dadd7f4819b8d15e120b8a6629e
+      has_more: false
+      last_id: msg_0e3fe24990ca0d3e006adb2dadd87c819bab391e666aa99d02
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t17
+  request:
+    body:
+      input:
+      - content: Use the python tool to calculate the sum of the squares of the integers
+          from 1 through 10. The code must print exactly CODE_INTERPRETER_OK=385.
+          After it runs, answer exactly CODE_INTERPRETER_OK=385.
+        role: user
+      - code: 'print(f"CODE_INTERPRETER_OK={sum(i**2 for i in range(1, 11))}")
+
+          '
+        container_id: cntr_6ab617b594c4819382eee217438ef95a0f2c410c10efc2e0
+        id: ci_020ffaaa85f1ecf6016ab617b64c4c87d1b4d893d7936f5244
+        outputs: null
+        status: completed
+        type: code_interpreter_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CODE_INTERPRETER_OK=385
+          type: output_text
+        id: msg_020ffaaa85f1ecf6016ab617b7bd7487d1968233eda02e0739
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748976
+      created_at: 1792748975
+      error: null
+      frequency_penalty: 0.0
+      id: resp_020ffaaa85f1ecf6006adb2dafe05487d183b6c417597c17cd
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_020ffaaa85f1ecf6006adb2db09aa487d199d76c9b12a69006
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 126
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 131
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t18
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_020ffaaa85f1ecf6006adb2dafe05487d183b6c417597c17cd/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Use the python tool to calculate the sum of the squares of the integers
+            from 1 through 10. The code must print exactly CODE_INTERPRETER_OK=385.
+            After it runs, answer exactly CODE_INTERPRETER_OK=385.
+          type: input_text
+        id: msg_020ffaaa85f1ecf6006adb2dafea6487d18f06d0d363a8f9fe
+        role: user
+        status: completed
+        type: message
+      - code: 'print(f"CODE_INTERPRETER_OK={sum(i**2 for i in range(1, 11))}")
+
+          '
+        container_id: cntr_6ab617b594c4819382eee217438ef95a0f2c410c10efc2e0
+        id: ci_020ffaaa85f1ecf6006adb2dafeaa487d19557cc928c7f8f26
+        outputs: null
+        status: completed
+        type: code_interpreter_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CODE_INTERPRETER_OK=385
+          type: output_text
+        id: msg_020ffaaa85f1ecf6006adb2dafeaf887d1bb8342a6268df5df
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_020ffaaa85f1ecf6006adb2dafead887d18a40330286c9b6aa
+        role: user
+        status: completed
+        type: message
+      first_id: msg_020ffaaa85f1ecf6006adb2dafea6487d18f06d0d363a8f9fe
+      has_more: false
+      last_id: msg_020ffaaa85f1ecf6006adb2dafead887d18a40330286c9b6aa
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t19
+  request:
+    body:
+      input:
+      - content: Use the python tool to calculate the sum of the squares of the integers
+          from 1 through 10. The code must print exactly CODE_INTERPRETER_OK=385.
+          After it runs, answer exactly CODE_INTERPRETER_OK=385.
+        role: user
+      - code: 'print(f"CODE_INTERPRETER_OK={sum(i**2 for i in range(1, 11))}")
+
+          '
+        container_id: cntr_6ab617b594c4819382eee217438ef95a0f2c410c10efc2e0
+        outputs: null
+        status: completed
+        type: code_interpreter_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CODE_INTERPRETER_OK=385
+          type: output_text
+        id: msg_020ffaaa85f1ecf6016ab617b7bd7487d1968233eda02e0739
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      error:
+        code: missing_required_parameter
+        message: 'Missing required parameter: ''input[1].id''.'
+        param: input[1].id
+        type: invalid_request_error
+    headers:
+      content-type: application/json
+    status_code: 400
+- filename: t20
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_missing/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      error:
+        code: null
+        message: Response with id 'resp_missing' not found.
+        param: null
+        type: invalid_request_error
+    headers:
+      content-type: application/json
+    status_code: 404
+- filename: t21
+  request:
+    body:
+      input:
+      - content: Use the python tool to calculate the sum of the squares of the integers
+          from 1 through 10. The code must print exactly CODE_INTERPRETER_OK=385.
+          After it runs, answer exactly CODE_INTERPRETER_OK=385.
+        role: user
+      - code: 'print(f"CODE_INTERPRETER_OK={sum(i**2 for i in range(1, 11))}")
+
+          '
+        container_id: cntr_6ab617b594c4819382eee217438ef95a0f2c410c10efc2e0
+        id: ci_020ffaaa85f1ecf6016ab617b64c4c87d1b4d893d7936f5244
+        outputs: null
+        type: code_interpreter_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CODE_INTERPRETER_OK=385
+          type: output_text
+        id: msg_020ffaaa85f1ecf6016ab617b7bd7487d1968233eda02e0739
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748980
+      created_at: 1792748979
+      error: null
+      frequency_penalty: 0.0
+      id: resp_020ffaaa85f1ecf6006adb2db3388887d1bc850fef29be776d
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_020ffaaa85f1ecf6006adb2db4149087d197835deda97e68b0
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 126
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 131
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t22
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_020ffaaa85f1ecf6006adb2db3388887d1bc850fef29be776d/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: Use the python tool to calculate the sum of the squares of the integers
+            from 1 through 10. The code must print exactly CODE_INTERPRETER_OK=385.
+            After it runs, answer exactly CODE_INTERPRETER_OK=385.
+          type: input_text
+        id: msg_020ffaaa85f1ecf6006adb2db3421087d1a784151b5a023421
+        role: user
+        status: completed
+        type: message
+      - code: 'print(f"CODE_INTERPRETER_OK={sum(i**2 for i in range(1, 11))}")
+
+          '
+        container_id: cntr_6ab617b594c4819382eee217438ef95a0f2c410c10efc2e0
+        id: ci_020ffaaa85f1ecf6006adb2db3424887d1bbbbd8b6c686b4b2
+        outputs: null
+        status: completed
+        type: code_interpreter_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CODE_INTERPRETER_OK=385
+          type: output_text
+        id: msg_020ffaaa85f1ecf6006adb2db3429c87d1b55ceab0e354d62d
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_020ffaaa85f1ecf6006adb2db3428087d1b9c1c7cd003b1f28
+        role: user
+        status: completed
+        type: message
+      first_id: msg_020ffaaa85f1ecf6006adb2db3421087d1a784151b5a023421
+      has_more: false
+      last_id: msg_020ffaaa85f1ecf6006adb2db3428087d1b9c1c7cd003b1f28
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t23
+  request:
+    body:
+      input:
+      - content: Use the python tool to calculate the sum of the squares of the integers
+          from 1 through 10. The code must print exactly CODE_INTERPRETER_OK=385.
+          After it runs, answer exactly CODE_INTERPRETER_OK=385.
+        role: user
+      - code: 'print(f"CODE_INTERPRETER_OK={sum(i**2 for i in range(1, 11))}")
+
+          '
+        container_id: cntr_6ab617b594c4819382eee217438ef95a0f2c410c10efc2e0
+        outputs: null
+        type: code_interpreter_call
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CODE_INTERPRETER_OK=385
+          type: output_text
+        id: msg_020ffaaa85f1ecf6016ab617b7bd7487d1968233eda02e0739
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      error:
+        code: missing_required_parameter
+        message: 'Missing required parameter: ''input[1].id''.'
+        param: input[1].id
+        type: invalid_request_error
+    headers:
+      content-type: application/json
+    status_code: 400
+- filename: t24
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_missing/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      error:
+        code: null
+        message: Response with id 'resp_missing' not found.
+        param: null
+        type: invalid_request_error
+    headers:
+      content-type: application/json
+    status_code: 404
+- filename: t25
+  request:
+    body:
+      input:
+      - content: 'The local shell environment is Linux bash. Use the shell tool exactly
+          once with this exact action, preserving the commands array and its order:
+          {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+          4096}. Wait for the client to return shell_call_output before interpreting
+          the results.'
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqn5R-qMzrhpfY55yyGL_98KwKb54soVWwMvEcVuzUxeLAGaxmxNMZ7qtzDWHmWx1WHDxR8qhZHt7FnPZJqgJaT7GkkDihHYAFGBzLvtRmt5XKSyvBkHpfHloYXXCHOIkgmOVBXuDghceosCIQT7FRjVBSOQBrEwfE9byvQWzoF2W8CpgIgWhFB_4CZ4ENoXJpVdl-ucaIEUqfFlqDnxIfjEI7ktZDf9nBDfGxHXBsYVrlyJ_XCZ5PyZ_keVi5daXuwMeps9-qDjzQmIg6PqIPBIeNDqTnyE5KZxLJTa1liAxOt6UvijBCg-tmbbMEqI19AE-L12-mvKCFzbmRx1ZHhqzaafmDSz5zIdJ4EGXYS-O1_PLRQgMus5Dd2ffQT9BBsHaIoTseZlftGiQ_AFk_Inf3lOgSKdCQ95_a2-KpVd8OntZgfpIlNcI3miJSOAE9LB9BcZ7MeOChEDN5nBhcWVooLaY8WGBhJN2KaGbxVfTgPcZnKVHEd8DeYgZS0P3iJktA6IXKo7qyicPadQsSZeq6rIuErbI_a_S-AJdKNhouRB1UF1R-Vxa7p5ZaifLNIHohOmq_TaYpS_KzFAOgZt2gxLr1dP7s3g-DSCTimQuN5H0wHQ2kEPWAmjc8nHTQUqvjsi9jvWoLxMHPkxXRjmupSaoSt3GS5Zm97J3Sv2UFtMIgblOisWchozi6C_7-rxn9L9LnUPoe83Cp6loAnmt21mGQ17JNj-OGjIIq95_PSuoDO05VNUKYUKwPFaMhha-0KxpNKBEIl7PN4XJT51PEkm4KRo6xKXr2WgkEk9vi8kO5cOs1HcQZ90dHicWEOEcDe4rwUMefbfxbrBto9u-C1GFWOWb9DihjwpasYkJ7jPAdVkFWqbNmYsTs5j-PSXUE-zE5bjSQ-eP-ozhqhITQlUnOUvkLn3ozAoiDr48a16JI-7OsWGj-Cs7iTFPxhGqQ9KhsoBlOkryx8alUfFqfMOK5zJY4TCxsmxxB_PQF7eFzjkstBRyxdNMukZFFd1o5LyIsCoN7nUKCgetuSefmq3NixbGOF8ylQTsTnzL8N6oXC_aG0m_TWqC9LE1otg2WiVwfg4cdhVbZq_RSA77jT1SBz9VZ8RLf9rZLYw5OOr6O0tfQuRH9tsROcFasYphDG0sZPAViJmUMQX270pR-1A5JtZheZOTbD98iu_g1tyyjpXYEGxHYXEruEyNw3FwtZ8craAvDhgBGyswM8Vy_U3Bqmg_Mh0QTAIWh0AVXRlFblx10Xm7rimxG1iwaQ-_GVzQriK2h53-Qj-i2YRcDBuqiGaoZ27aLVlKCsH0x795nadIPgLm9IDQq8e1jk5zyPfSvmAzLun2CXju88XU4wQ3iND4mvXpVo0Gyu63_pOeaowHZqH1oB8G6Kf7lsY-FUFTLsYfFTT_RB_07CITmyNthyIAE0fgUgofmVlPlRLQpq2GSMWvwJ12pmBRQHAyR1C4FcOCdid9iU3c4ToZaToOTdWh_aufHk7bZad14Do8S0c54lgqQC6N58H-1M9ZzR7cVET5_OnE_LSAAKNVrImGkGuh2CbJElSnYKRXOgP9NNOy0c-lDH1HkE7EwQUiPOfbB2Ca1FQF6Rb2IU4de-CNm8sA2bltAeMbaybn8KOsgMC8osnZI_xEgZAAulq2WeOzfihip0gBc_32r3NOcJg440LieuQdRxCVeDEMzwFJ7yamzuXygNR13eF0ytGm5yEH_dV7zb0c0SgAJC8VIskSFmFE3XuP4QKU5Ik6kWFb-TAeYeF-O3c39_ABg-9cmtMnuYF1miScU6vjFgDiTaAqt8sMRfVr-Zm18fBmCPQLV938-crLhPi5tscP1PH4q
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        id: sh_0d2fb655988faaf0006a9f947dbf0087d09b831815734fc46a
+        status: completed
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        max_output_length: 4096
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        type: shell_call_output
+      - content: Use the shell output above without calling any more tools. For each
+          command, report its stdout, stderr, and exit code or timeout outcome in
+          order.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748983
+      created_at: 1792748982
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0d2fb655988faaf0006adb2db6bca087d084eb452458cb70fb
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0d2fb655988faaf0006adb2db7532487d0aa7bd5ed3557a630
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 345
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 350
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t26
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0d2fb655988faaf0006adb2db6bca087d084eb452458cb70fb/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: 'The local shell environment is Linux bash. Use the shell tool exactly
+            once with this exact action, preserving the commands array and its order:
+            {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+            4096}. Wait for the client to return shell_call_output before interpreting
+            the results.'
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2db6d17c87d0aa102ef98557cc7d
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        id: sh_0d2fb655988faaf0006a9f947dbf0087d09b831815734fc46a
+        status: completed
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        id: sho_0d2fb655988faaf0006adb2db6d1b887d0b624f670294527d6
+        max_output_length: null
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        status: completed
+        type: shell_call_output
+      - content:
+        - text: Use the shell output above without calling any more tools. For each
+            command, report its stdout, stderr, and exit code or timeout outcome in
+            order.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2db6d1d087d0ac4c0057b273e0cb
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2db6d1f087d0a4593221d350eac5
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0d2fb655988faaf0006adb2db6d17c87d0aa102ef98557cc7d
+      has_more: false
+      last_id: msg_0d2fb655988faaf0006adb2db6d1f087d0a4593221d350eac5
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t27
+  request:
+    body:
+      input:
+      - content: 'The local shell environment is Linux bash. Use the shell tool exactly
+          once with this exact action, preserving the commands array and its order:
+          {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+          4096}. Wait for the client to return shell_call_output before interpreting
+          the results.'
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqn5R-qMzrhpfY55yyGL_98KwKb54soVWwMvEcVuzUxeLAGaxmxNMZ7qtzDWHmWx1WHDxR8qhZHt7FnPZJqgJaT7GkkDihHYAFGBzLvtRmt5XKSyvBkHpfHloYXXCHOIkgmOVBXuDghceosCIQT7FRjVBSOQBrEwfE9byvQWzoF2W8CpgIgWhFB_4CZ4ENoXJpVdl-ucaIEUqfFlqDnxIfjEI7ktZDf9nBDfGxHXBsYVrlyJ_XCZ5PyZ_keVi5daXuwMeps9-qDjzQmIg6PqIPBIeNDqTnyE5KZxLJTa1liAxOt6UvijBCg-tmbbMEqI19AE-L12-mvKCFzbmRx1ZHhqzaafmDSz5zIdJ4EGXYS-O1_PLRQgMus5Dd2ffQT9BBsHaIoTseZlftGiQ_AFk_Inf3lOgSKdCQ95_a2-KpVd8OntZgfpIlNcI3miJSOAE9LB9BcZ7MeOChEDN5nBhcWVooLaY8WGBhJN2KaGbxVfTgPcZnKVHEd8DeYgZS0P3iJktA6IXKo7qyicPadQsSZeq6rIuErbI_a_S-AJdKNhouRB1UF1R-Vxa7p5ZaifLNIHohOmq_TaYpS_KzFAOgZt2gxLr1dP7s3g-DSCTimQuN5H0wHQ2kEPWAmjc8nHTQUqvjsi9jvWoLxMHPkxXRjmupSaoSt3GS5Zm97J3Sv2UFtMIgblOisWchozi6C_7-rxn9L9LnUPoe83Cp6loAnmt21mGQ17JNj-OGjIIq95_PSuoDO05VNUKYUKwPFaMhha-0KxpNKBEIl7PN4XJT51PEkm4KRo6xKXr2WgkEk9vi8kO5cOs1HcQZ90dHicWEOEcDe4rwUMefbfxbrBto9u-C1GFWOWb9DihjwpasYkJ7jPAdVkFWqbNmYsTs5j-PSXUE-zE5bjSQ-eP-ozhqhITQlUnOUvkLn3ozAoiDr48a16JI-7OsWGj-Cs7iTFPxhGqQ9KhsoBlOkryx8alUfFqfMOK5zJY4TCxsmxxB_PQF7eFzjkstBRyxdNMukZFFd1o5LyIsCoN7nUKCgetuSefmq3NixbGOF8ylQTsTnzL8N6oXC_aG0m_TWqC9LE1otg2WiVwfg4cdhVbZq_RSA77jT1SBz9VZ8RLf9rZLYw5OOr6O0tfQuRH9tsROcFasYphDG0sZPAViJmUMQX270pR-1A5JtZheZOTbD98iu_g1tyyjpXYEGxHYXEruEyNw3FwtZ8craAvDhgBGyswM8Vy_U3Bqmg_Mh0QTAIWh0AVXRlFblx10Xm7rimxG1iwaQ-_GVzQriK2h53-Qj-i2YRcDBuqiGaoZ27aLVlKCsH0x795nadIPgLm9IDQq8e1jk5zyPfSvmAzLun2CXju88XU4wQ3iND4mvXpVo0Gyu63_pOeaowHZqH1oB8G6Kf7lsY-FUFTLsYfFTT_RB_07CITmyNthyIAE0fgUgofmVlPlRLQpq2GSMWvwJ12pmBRQHAyR1C4FcOCdid9iU3c4ToZaToOTdWh_aufHk7bZad14Do8S0c54lgqQC6N58H-1M9ZzR7cVET5_OnE_LSAAKNVrImGkGuh2CbJElSnYKRXOgP9NNOy0c-lDH1HkE7EwQUiPOfbB2Ca1FQF6Rb2IU4de-CNm8sA2bltAeMbaybn8KOsgMC8osnZI_xEgZAAulq2WeOzfihip0gBc_32r3NOcJg440LieuQdRxCVeDEMzwFJ7yamzuXygNR13eF0ytGm5yEH_dV7zb0c0SgAJC8VIskSFmFE3XuP4QKU5Ik6kWFb-TAeYeF-O3c39_ABg-9cmtMnuYF1miScU6vjFgDiTaAqt8sMRfVr-Zm18fBmCPQLV938-crLhPi5tscP1PH4q
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        status: completed
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        max_output_length: 4096
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        type: shell_call_output
+      - content: Use the shell output above without calling any more tools. For each
+          command, report its stdout, stderr, and exit code or timeout outcome in
+          order.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748985
+      created_at: 1792748984
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0d2fb655988faaf0006adb2db8ed6c87d0a5066123901cd60f
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0d2fb655988faaf0006adb2db9b01c87d0a3a70577e5c9291e
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 345
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 350
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t28
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0d2fb655988faaf0006adb2db8ed6c87d0a5066123901cd60f/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: 'The local shell environment is Linux bash. Use the shell tool exactly
+            once with this exact action, preserving the commands array and its order:
+            {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+            4096}. Wait for the client to return shell_call_output before interpreting
+            the results.'
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2db8f8c487d086435fe04f3ea615
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        id: sh_0d2fb655988faaf0006adb2db8f90887d0a9f997dc4de5c96a
+        status: in_progress
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        id: sho_0d2fb655988faaf0006adb2db8f95087d0b2def1f37e948d07
+        max_output_length: null
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        status: completed
+        type: shell_call_output
+      - content:
+        - text: Use the shell output above without calling any more tools. For each
+            command, report its stdout, stderr, and exit code or timeout outcome in
+            order.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2db8f96487d0826bdc912180a83c
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2db8f97c87d0a5fe376f3ed09861
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0d2fb655988faaf0006adb2db8f8c487d086435fe04f3ea615
+      has_more: false
+      last_id: msg_0d2fb655988faaf0006adb2db8f97c87d0a5fe376f3ed09861
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t29
+  request:
+    body:
+      input:
+      - content: 'The local shell environment is Linux bash. Use the shell tool exactly
+          once with this exact action, preserving the commands array and its order:
+          {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+          4096}. Wait for the client to return shell_call_output before interpreting
+          the results.'
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqn5R-qMzrhpfY55yyGL_98KwKb54soVWwMvEcVuzUxeLAGaxmxNMZ7qtzDWHmWx1WHDxR8qhZHt7FnPZJqgJaT7GkkDihHYAFGBzLvtRmt5XKSyvBkHpfHloYXXCHOIkgmOVBXuDghceosCIQT7FRjVBSOQBrEwfE9byvQWzoF2W8CpgIgWhFB_4CZ4ENoXJpVdl-ucaIEUqfFlqDnxIfjEI7ktZDf9nBDfGxHXBsYVrlyJ_XCZ5PyZ_keVi5daXuwMeps9-qDjzQmIg6PqIPBIeNDqTnyE5KZxLJTa1liAxOt6UvijBCg-tmbbMEqI19AE-L12-mvKCFzbmRx1ZHhqzaafmDSz5zIdJ4EGXYS-O1_PLRQgMus5Dd2ffQT9BBsHaIoTseZlftGiQ_AFk_Inf3lOgSKdCQ95_a2-KpVd8OntZgfpIlNcI3miJSOAE9LB9BcZ7MeOChEDN5nBhcWVooLaY8WGBhJN2KaGbxVfTgPcZnKVHEd8DeYgZS0P3iJktA6IXKo7qyicPadQsSZeq6rIuErbI_a_S-AJdKNhouRB1UF1R-Vxa7p5ZaifLNIHohOmq_TaYpS_KzFAOgZt2gxLr1dP7s3g-DSCTimQuN5H0wHQ2kEPWAmjc8nHTQUqvjsi9jvWoLxMHPkxXRjmupSaoSt3GS5Zm97J3Sv2UFtMIgblOisWchozi6C_7-rxn9L9LnUPoe83Cp6loAnmt21mGQ17JNj-OGjIIq95_PSuoDO05VNUKYUKwPFaMhha-0KxpNKBEIl7PN4XJT51PEkm4KRo6xKXr2WgkEk9vi8kO5cOs1HcQZ90dHicWEOEcDe4rwUMefbfxbrBto9u-C1GFWOWb9DihjwpasYkJ7jPAdVkFWqbNmYsTs5j-PSXUE-zE5bjSQ-eP-ozhqhITQlUnOUvkLn3ozAoiDr48a16JI-7OsWGj-Cs7iTFPxhGqQ9KhsoBlOkryx8alUfFqfMOK5zJY4TCxsmxxB_PQF7eFzjkstBRyxdNMukZFFd1o5LyIsCoN7nUKCgetuSefmq3NixbGOF8ylQTsTnzL8N6oXC_aG0m_TWqC9LE1otg2WiVwfg4cdhVbZq_RSA77jT1SBz9VZ8RLf9rZLYw5OOr6O0tfQuRH9tsROcFasYphDG0sZPAViJmUMQX270pR-1A5JtZheZOTbD98iu_g1tyyjpXYEGxHYXEruEyNw3FwtZ8craAvDhgBGyswM8Vy_U3Bqmg_Mh0QTAIWh0AVXRlFblx10Xm7rimxG1iwaQ-_GVzQriK2h53-Qj-i2YRcDBuqiGaoZ27aLVlKCsH0x795nadIPgLm9IDQq8e1jk5zyPfSvmAzLun2CXju88XU4wQ3iND4mvXpVo0Gyu63_pOeaowHZqH1oB8G6Kf7lsY-FUFTLsYfFTT_RB_07CITmyNthyIAE0fgUgofmVlPlRLQpq2GSMWvwJ12pmBRQHAyR1C4FcOCdid9iU3c4ToZaToOTdWh_aufHk7bZad14Do8S0c54lgqQC6N58H-1M9ZzR7cVET5_OnE_LSAAKNVrImGkGuh2CbJElSnYKRXOgP9NNOy0c-lDH1HkE7EwQUiPOfbB2Ca1FQF6Rb2IU4de-CNm8sA2bltAeMbaybn8KOsgMC8osnZI_xEgZAAulq2WeOzfihip0gBc_32r3NOcJg440LieuQdRxCVeDEMzwFJ7yamzuXygNR13eF0ytGm5yEH_dV7zb0c0SgAJC8VIskSFmFE3XuP4QKU5Ik6kWFb-TAeYeF-O3c39_ABg-9cmtMnuYF1miScU6vjFgDiTaAqt8sMRfVr-Zm18fBmCPQLV938-crLhPi5tscP1PH4q
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        id: sh_0d2fb655988faaf0006a9f947dbf0087d09b831815734fc46a
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        max_output_length: 4096
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        type: shell_call_output
+      - content: Use the shell output above without calling any more tools. For each
+          command, report its stdout, stderr, and exit code or timeout outcome in
+          order.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748988
+      created_at: 1792748987
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0d2fb655988faaf0006adb2dbb31cc87d09a6aaecad597ec64
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0d2fb655988faaf0006adb2dbc270c87d08f9bab7037ca8bb1
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 345
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 350
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t30
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0d2fb655988faaf0006adb2dbb31cc87d09a6aaecad597ec64/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: 'The local shell environment is Linux bash. Use the shell tool exactly
+            once with this exact action, preserving the commands array and its order:
+            {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+            4096}. Wait for the client to return shell_call_output before interpreting
+            the results.'
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2dbb4a8487d0a80c3f37865b09de
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        id: sh_0d2fb655988faaf0006a9f947dbf0087d09b831815734fc46a
+        status: completed
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        id: sho_0d2fb655988faaf0006adb2dbb4ab887d0a44a88f0a35fabe5
+        max_output_length: null
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        status: completed
+        type: shell_call_output
+      - content:
+        - text: Use the shell output above without calling any more tools. For each
+            command, report its stdout, stderr, and exit code or timeout outcome in
+            order.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2dbb4ad087d08262acca50df3e00
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2dbb4aec87d085485737deeb5175
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0d2fb655988faaf0006adb2dbb4a8487d0a80c3f37865b09de
+      has_more: false
+      last_id: msg_0d2fb655988faaf0006adb2dbb4aec87d085485737deeb5175
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t31
+  request:
+    body:
+      input:
+      - content: 'The local shell environment is Linux bash. Use the shell tool exactly
+          once with this exact action, preserving the commands array and its order:
+          {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+          4096}. Wait for the client to return shell_call_output before interpreting
+          the results.'
+        role: user
+      - content: []
+        encrypted_content: gAAAAABqn5R-qMzrhpfY55yyGL_98KwKb54soVWwMvEcVuzUxeLAGaxmxNMZ7qtzDWHmWx1WHDxR8qhZHt7FnPZJqgJaT7GkkDihHYAFGBzLvtRmt5XKSyvBkHpfHloYXXCHOIkgmOVBXuDghceosCIQT7FRjVBSOQBrEwfE9byvQWzoF2W8CpgIgWhFB_4CZ4ENoXJpVdl-ucaIEUqfFlqDnxIfjEI7ktZDf9nBDfGxHXBsYVrlyJ_XCZ5PyZ_keVi5daXuwMeps9-qDjzQmIg6PqIPBIeNDqTnyE5KZxLJTa1liAxOt6UvijBCg-tmbbMEqI19AE-L12-mvKCFzbmRx1ZHhqzaafmDSz5zIdJ4EGXYS-O1_PLRQgMus5Dd2ffQT9BBsHaIoTseZlftGiQ_AFk_Inf3lOgSKdCQ95_a2-KpVd8OntZgfpIlNcI3miJSOAE9LB9BcZ7MeOChEDN5nBhcWVooLaY8WGBhJN2KaGbxVfTgPcZnKVHEd8DeYgZS0P3iJktA6IXKo7qyicPadQsSZeq6rIuErbI_a_S-AJdKNhouRB1UF1R-Vxa7p5ZaifLNIHohOmq_TaYpS_KzFAOgZt2gxLr1dP7s3g-DSCTimQuN5H0wHQ2kEPWAmjc8nHTQUqvjsi9jvWoLxMHPkxXRjmupSaoSt3GS5Zm97J3Sv2UFtMIgblOisWchozi6C_7-rxn9L9LnUPoe83Cp6loAnmt21mGQ17JNj-OGjIIq95_PSuoDO05VNUKYUKwPFaMhha-0KxpNKBEIl7PN4XJT51PEkm4KRo6xKXr2WgkEk9vi8kO5cOs1HcQZ90dHicWEOEcDe4rwUMefbfxbrBto9u-C1GFWOWb9DihjwpasYkJ7jPAdVkFWqbNmYsTs5j-PSXUE-zE5bjSQ-eP-ozhqhITQlUnOUvkLn3ozAoiDr48a16JI-7OsWGj-Cs7iTFPxhGqQ9KhsoBlOkryx8alUfFqfMOK5zJY4TCxsmxxB_PQF7eFzjkstBRyxdNMukZFFd1o5LyIsCoN7nUKCgetuSefmq3NixbGOF8ylQTsTnzL8N6oXC_aG0m_TWqC9LE1otg2WiVwfg4cdhVbZq_RSA77jT1SBz9VZ8RLf9rZLYw5OOr6O0tfQuRH9tsROcFasYphDG0sZPAViJmUMQX270pR-1A5JtZheZOTbD98iu_g1tyyjpXYEGxHYXEruEyNw3FwtZ8craAvDhgBGyswM8Vy_U3Bqmg_Mh0QTAIWh0AVXRlFblx10Xm7rimxG1iwaQ-_GVzQriK2h53-Qj-i2YRcDBuqiGaoZ27aLVlKCsH0x795nadIPgLm9IDQq8e1jk5zyPfSvmAzLun2CXju88XU4wQ3iND4mvXpVo0Gyu63_pOeaowHZqH1oB8G6Kf7lsY-FUFTLsYfFTT_RB_07CITmyNthyIAE0fgUgofmVlPlRLQpq2GSMWvwJ12pmBRQHAyR1C4FcOCdid9iU3c4ToZaToOTdWh_aufHk7bZad14Do8S0c54lgqQC6N58H-1M9ZzR7cVET5_OnE_LSAAKNVrImGkGuh2CbJElSnYKRXOgP9NNOy0c-lDH1HkE7EwQUiPOfbB2Ca1FQF6Rb2IU4de-CNm8sA2bltAeMbaybn8KOsgMC8osnZI_xEgZAAulq2WeOzfihip0gBc_32r3NOcJg440LieuQdRxCVeDEMzwFJ7yamzuXygNR13eF0ytGm5yEH_dV7zb0c0SgAJC8VIskSFmFE3XuP4QKU5Ik6kWFb-TAeYeF-O3c39_ABg-9cmtMnuYF1miScU6vjFgDiTaAqt8sMRfVr-Zm18fBmCPQLV938-crLhPi5tscP1PH4q
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        max_output_length: 4096
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        type: shell_call_output
+      - content: Use the shell output above without calling any more tools. For each
+          command, report its stdout, stderr, and exit code or timeout outcome in
+          order.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748990
+      created_at: 1792748989
+      error: null
+      frequency_penalty: 0.0
+      id: resp_0d2fb655988faaf0006adb2dbdb97487d0b1812a2c7f6ef70e
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_0d2fb655988faaf0006adb2dbe7a5c87d09f60c3302658b4dd
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 345
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 350
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t32
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_0d2fb655988faaf0006adb2dbdb97487d0b1812a2c7f6ef70e/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: 'The local shell environment is Linux bash. Use the shell tool exactly
+            once with this exact action, preserving the commands array and its order:
+            {"commands": ["printf ''SHELL_OK\\n''"], "timeout_ms": 1000, "max_output_length":
+            4096}. Wait for the client to return shell_call_output before interpreting
+            the results.'
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2dbdc90487d097906ecab451ffa9
+        role: user
+        status: completed
+        type: message
+      - content: []
+        id: rs_0d2fb655988faaf0006a9f947c071c87d0add00f0d0c6155f6
+        summary: []
+        type: reasoning
+      - action:
+          commands:
+          - printf 'SHELL_OK\n'
+          max_output_length: 4096
+          timeout_ms: 1000
+        call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        environment: null
+        id: sh_0d2fb655988faaf0006adb2dbdc93c87d08eefa2e05e9b9150
+        status: in_progress
+        type: shell_call
+      - call_id: call_oA7WtsxOcHnQE7xCPKcFmO23
+        id: sho_0d2fb655988faaf0006adb2dbdc97c87d09985d9f947e1851b
+        max_output_length: null
+        output:
+        - outcome:
+            exit_code: 0
+            type: exit
+          stderr: ''
+          stdout: 'SHELL_OK
+
+            '
+        status: completed
+        type: shell_call_output
+      - content:
+        - text: Use the shell output above without calling any more tools. For each
+            command, report its stdout, stderr, and exit code or timeout outcome in
+            order.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2dbdc99087d081b9be311e6e5598
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: "1. `printf 'SHELL_OK\\n'`\n   - **stdout:** `SHELL_OK`\n   - **stderr:**\
+            \ *(empty)*\n   - **exit code:** `0`"
+          type: output_text
+        id: msg_0d2fb655988faaf0006a9f947f64b887d092916891b8f7c083
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_0d2fb655988faaf0006adb2dbdc9a887d0a5c926b453dafb8e
+        role: user
+        status: completed
+        type: message
+      first_id: msg_0d2fb655988faaf0006adb2dbdc90487d097906ecab451ffa9
+      has_more: false
+      last_id: msg_0d2fb655988faaf0006adb2dbdc9a887d0a5c926b453dafb8e
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t33
+  request:
+    body:
+      input:
+      - content: You must call the agentic_raw_echo custom tool exactly once with
+          exactly CUSTOM_CASSETTE_OK as its raw text input.
+        role: user
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctc_01014eb0097f04f3006a71c72e2d40819bbefefdd49524c78b
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        status: completed
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        type: custom_tool_call_output
+      - content: Use the custom tool output provided above. Do not call any tool again.
+          Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748993
+      created_at: 1792748992
+      error: null
+      frequency_penalty: 0.0
+      id: resp_01014eb0097f04f3006adb2dc09728819baac1adac0f700482
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_01014eb0097f04f3006adb2dc15744819bbe0cf7a7e091c54f
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 134
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 139
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t34
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_01014eb0097f04f3006adb2dc09728819baac1adac0f700482/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: You must call the agentic_raw_echo custom tool exactly once with exactly
+            CUSTOM_CASSETTE_OK as its raw text input.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc0d030819ba646d33b6ee18db3
+        role: user
+        status: completed
+        type: message
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctc_01014eb0097f04f3006a71c72e2d40819bbefefdd49524c78b
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        status: completed
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctco_01014eb0097f04f3006adb2dc0d06c819b9406a9592450c766
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        status: completed
+        type: custom_tool_call_output
+      - content:
+        - text: Use the custom tool output provided above. Do not call any tool again.
+            Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc0d088819b9b7ae022bcf4108b
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc0d0ac819bbd7ebfb1307fd2bf
+        role: user
+        status: completed
+        type: message
+      first_id: msg_01014eb0097f04f3006adb2dc0d030819ba646d33b6ee18db3
+      has_more: false
+      last_id: msg_01014eb0097f04f3006adb2dc0d0ac819bbd7ebfb1307fd2bf
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t35
+  request:
+    body:
+      input:
+      - content: You must call the agentic_raw_echo custom tool exactly once with
+          exactly CUSTOM_CASSETTE_OK as its raw text input.
+        role: user
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        status: completed
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        type: custom_tool_call_output
+      - content: Use the custom tool output provided above. Do not call any tool again.
+          Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748996
+      created_at: 1792748995
+      error: null
+      frequency_penalty: 0.0
+      id: resp_01014eb0097f04f3006adb2dc34dc0819b859bc81611f5b439
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_01014eb0097f04f3006adb2dc3f85c819b82e96d0897b24d3b
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 134
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 139
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t36
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_01014eb0097f04f3006adb2dc34dc0819b859bc81611f5b439/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: You must call the agentic_raw_echo custom tool exactly once with exactly
+            CUSTOM_CASSETTE_OK as its raw text input.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc369f8819b85b55bffd078e5ca
+        role: user
+        status: completed
+        type: message
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctc_01014eb0097f04f3006adb2dc36a14819bb9937b6b4d5ceb4b
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        status: in_progress
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctco_01014eb0097f04f3006adb2dc36a30819bac7740c6a0ef2c31
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        status: completed
+        type: custom_tool_call_output
+      - content:
+        - text: Use the custom tool output provided above. Do not call any tool again.
+            Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc36a44819bb382685a81d5d24a
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc36a64819bb9fca37be0224385
+        role: user
+        status: completed
+        type: message
+      first_id: msg_01014eb0097f04f3006adb2dc369f8819b85b55bffd078e5ca
+      has_more: false
+      last_id: msg_01014eb0097f04f3006adb2dc36a64819bb9fca37be0224385
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t37
+  request:
+    body:
+      input:
+      - content: You must call the agentic_raw_echo custom tool exactly once with
+          exactly CUSTOM_CASSETTE_OK as its raw text input.
+        role: user
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctc_01014eb0097f04f3006a71c72e2d40819bbefefdd49524c78b
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        type: custom_tool_call_output
+      - content: Use the custom tool output provided above. Do not call any tool again.
+          Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792748998
+      created_at: 1792748998
+      error: null
+      frequency_penalty: 0.0
+      id: resp_01014eb0097f04f3006adb2dc62acc819bbcfc572bf84f8e0b
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_01014eb0097f04f3006adb2dc6d8a4819bbfdcbd36d9ea6696
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 134
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 139
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t38
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_01014eb0097f04f3006adb2dc62acc819bbcfc572bf84f8e0b/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: You must call the agentic_raw_echo custom tool exactly once with exactly
+            CUSTOM_CASSETTE_OK as its raw text input.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc63ff4819b91d239d7b351104f
+        role: user
+        status: completed
+        type: message
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctc_01014eb0097f04f3006a71c72e2d40819bbefefdd49524c78b
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        status: completed
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctco_01014eb0097f04f3006adb2dc64020819ba310f92062beec75
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        status: completed
+        type: custom_tool_call_output
+      - content:
+        - text: Use the custom tool output provided above. Do not call any tool again.
+            Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc64038819bbcab940a76439917
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc64060819b8b0f4e0b6122c6f1
+        role: user
+        status: completed
+        type: message
+      first_id: msg_01014eb0097f04f3006adb2dc63ff4819b91d239d7b351104f
+      has_more: false
+      last_id: msg_01014eb0097f04f3006adb2dc64060819b8b0f4e0b6122c6f1
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t39
+  request:
+    body:
+      input:
+      - content: You must call the agentic_raw_echo custom tool exactly once with
+          exactly CUSTOM_CASSETTE_OK as its raw text input.
+        role: user
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        type: custom_tool_call_output
+      - content: Use the custom tool output provided above. Do not call any tool again.
+          Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+        role: user
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content: This is completed tool history. Do not call tools. Reply only OK.
+        role: user
+      model: gpt-5.6
+      store: true
+      stream: false
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      content-type: application/json
+      user-agent: python-httpx/0.28.1
+    method: POST
+    path: /v1/responses
+    query_params: {}
+  response:
+    body:
+      access_programs: null
+      background: false
+      billing:
+        payer: developer
+      completed_at: 1792749002
+      created_at: 1792749000
+      error: null
+      frequency_penalty: 0.0
+      id: resp_01014eb0097f04f3006adb2dc8bda4819b88feec8f807aa201
+      incomplete_details: null
+      instructions: null
+      max_output_tokens: null
+      max_tool_calls: null
+      metadata: {}
+      model: gpt-5.6-sol
+      moderation: null
+      object: response
+      output:
+      - content:
+        - annotations: []
+          logprobs: []
+          text: OK
+          type: output_text
+        id: msg_01014eb0097f04f3006adb2dcae238819b83a09efc49b21b6c
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      parallel_tool_calls: true
+      presence_penalty: 0.0
+      previous_response_id: null
+      prompt_cache_key: null
+      prompt_cache_retention: 24h
+      reasoning:
+        context: all_turns
+        effort: medium
+        mode: standard
+        summary: null
+      safety_identifier: null
+      service_tier: default
+      status: completed
+      store: true
+      temperature: 1.0
+      text:
+        format:
+          type: text
+        verbosity: medium
+      tool_choice: auto
+      tool_usage:
+        image_gen:
+          input_tokens: 0
+          input_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          output_tokens: 0
+          output_tokens_details:
+            image_tokens: 0
+            text_tokens: 0
+          total_tokens: 0
+        web_search:
+          num_requests: 0
+      tools: []
+      top_logprobs: 0
+      top_p: 0.98
+      truncation: disabled
+      usage:
+        input_tokens: 134
+        input_tokens_details:
+          cache_write_tokens: 0
+          cached_tokens: 0
+        output_tokens: 5
+        output_tokens_details:
+          reasoning_tokens: 0
+        total_tokens: 139
+      user: null
+    headers:
+      content-type: application/json
+    status_code: 200
+- filename: t40
+  request:
+    body: {}
+    headers:
+      accept: '*/*'
+      authorization: Bearer ***
+      user-agent: python-httpx/0.28.1
+    method: GET
+    path: /v1/responses/resp_01014eb0097f04f3006adb2dc8bda4819b88feec8f807aa201/input_items
+    query_params:
+      limit: '100'
+      order: asc
+  response:
+    body:
+      data:
+      - content:
+        - text: You must call the agentic_raw_echo custom tool exactly once with exactly
+            CUSTOM_CASSETTE_OK as its raw text input.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc8c8c4819bbfcadcb9d1edbc3e
+        role: user
+        status: completed
+        type: message
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctc_01014eb0097f04f3006adb2dc8c8e0819b8f64300ac362aba4
+        input: 'CUSTOM_CASSETTE_OK
+
+          '
+        name: agentic_raw_echo
+        status: in_progress
+        type: custom_tool_call
+      - call_id: call_JDSSJwEPgXXYnkfXkb7CLVLF
+        id: ctco_01014eb0097f04f3006adb2dc8c8f8819ba473098f6a4b24e9
+        output: CUSTOM_CASSETTE_OUTPUT_OK
+        status: completed
+        type: custom_tool_call_output
+      - content:
+        - text: Use the custom tool output provided above. Do not call any tool again.
+            Reply with exactly CUSTOM_CASSETTE_OUTPUT_OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc8c90c819bae5146fe70453d7e
+        role: user
+        status: completed
+        type: message
+      - content:
+        - annotations: []
+          logprobs: []
+          text: CUSTOM_CASSETTE_OUTPUT_OK
+          type: output_text
+        id: msg_01014eb0097f04f3006a71c72fd210819bb751b115cd0730fc
+        phase: final_answer
+        role: assistant
+        status: completed
+        type: message
+      - content:
+        - text: This is completed tool history. Do not call tools. Reply only OK.
+          type: input_text
+        id: msg_01014eb0097f04f3006adb2dc8c92c819b82487bf31f975e67
+        role: user
+        status: completed
+        type: message
+      first_id: msg_01014eb0097f04f3006adb2dc8c8c4819bbfcadcb9d1edbc3e
+      has_more: false
+      last_id: msg_01014eb0097f04f3006adb2dc8c92c819b82487bf31f975e67
+      object: list
+    headers:
+      content-type: application/json
+    status_code: 200

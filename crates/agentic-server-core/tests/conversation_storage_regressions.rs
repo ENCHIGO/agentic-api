@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use agentic_core::storage::models::item as item_model;
 use agentic_core::storage::{ConversationStore, ResponseMetadata, ResponseStore, create_pool_with_schema};
-use agentic_core::types::conversations::ItemOrder;
 use agentic_core::types::io::InOutItem;
+use agentic_core::types::io::ItemOrder;
 use serde_json::json;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -186,14 +186,6 @@ async fn insert_with_ids(
 ) -> agentic_core::storage::StoreResult<()> {
     let mut tx = pool.begin().await?;
     agentic_core::storage::models::conversation::lock_in_tx(&mut tx, id).await?;
-    let items = items
-        .into_iter()
-        .map(|(id, data)| item_model::NewItem {
-            id,
-            data,
-            role: item_model::ItemRole::Input,
-        })
-        .collect();
     item_model::create_in_tx(&mut tx, items, Some(id)).await?;
     tx.commit().await?;
     Ok(())

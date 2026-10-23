@@ -439,45 +439,41 @@ must send that key as a bearer token.
 ### `DELETE /v1/responses/{response_id}`
 
 Deletes a stored response and returns
-`{"id": "<response_id>", "object": "response.deleted", "deleted": true}`. Later
-retrieval returns `404`, and a new request naming the deleted ID as
-`previous_response_id` returns `400` with code `previous_response_not_found`
-and `param: "previous_response_id"`, as for any unknown previous response.
-Responses created from it stay retrievable and can still be continued: each
-stored response keeps its own complete history. The response's prompt and
-output rows are erased unless something still uses them: another response's
-history (descendants and siblings inherit history), a conversation, or a
-conversation item that references them. Deleting a conversation's latest
-response moves the conversation to its newest remaining response, so the next
-turn keeps the closest stored state (effective settings, tools loaded by tool
-search, the multi-agent tree). Unknown IDs return `404`. Authentication matches
-retrieval.
+`{"id": "<response_id>", "object": "response.deleted", "deleted": true}`.
+Unknown or already deleted IDs return `404`. The deleted response can no
+longer be retrieved or used as a durable `previous_response_id`.
 
-Deletion does not reach live WebSocket sessions: a connection whose latest
-response is the deleted one can still continue from it, because the session
-caches that checkpoint and does not read storage again. A `store: true` turn
-from it then fails at persistence. New connections and HTTP requests are
-rejected as described above.
+History item rows are retained: descendant responses and conversations may
+still reference them. Descendants remain retrievable and continuable, but
+response-chain descendants exclude the deleted response's inherited context
+from their input listings and subsequent inference. Conversation snapshots
+retain their recorded context. These behaviors are covered by OpenAI and
+gateway lifecycle recordings, including continuation after parent deletion.
+Existing foreign keys clear pointers to the deleted response, including a
+conversation's `latest_response_id`; deletion does not choose an older turn
+as replacement state. Authentication matches response retrieval.
+
+Deletion does not invalidate a live WebSocket session's cached checkpoint.
+Such a session may still continue without storage; persisting a child of the
+deleted response fails. New connections resolve durable IDs through storage.
 
 ### `GET /v1/responses/{response_id}/input_items`
 
-Lists the context a stored response was generated from: items inherited through
-`previous_response_id` or its conversation (including earlier turns' outputs),
-followed by that turn's input. The response's own output is not included. A
-conversation turn lists the conversation as it was at that turn, not as it is
-now. Pagination matches conversation item listing: `limit` (1–100, default 20),
-`order` (`desc` by default), and `after` (the ID of the last item on the
-previous page, `404` if unknown). An item can occur more than once in a
-history; an `after` cursor naming it resumes after its last occurrence in the
-requested order, so paging always advances. `include` (repeatable, also as
-`include[]`) accepts `message.input_image.image_url`,
-`computer_call_output.output.image_url`, `reasoning.encrypted_content`, and
-`message.output_text.logprobs`, which stored items already carry; hosted tool
-results (`web_search_call.*`, `file_search_call.results`,
-`code_interpreter_call.outputs`) and unknown values return `400`, as do a
-repeated `limit`, `order`, or `after`. Conversation item listing parses its
-query the same way. Unknown IDs return `404`, and records without a stored
-response snapshot return `409`. Authentication matches retrieval.
+Lists the stored context for a response: inherited history, including earlier
+outputs, followed by this turn's inputs. This response's appended outputs are
+excluded. The endpoint uses the existing history IDs, item records, and saved
+response snapshot; it does not add metadata or change persistence.
+
+Pagination uses the Conversation API query parameters: `limit` (1–100,
+default 20), `order` (`asc` or `desc`, default `desc`), and `after` (a public
+item ID; unknown cursors return `404`). A repeated public ID resumes after
+its last occurrence in the requested order. `include` or `include[]` accepts
+`message.output_text.logprobs`, which stored items already contain; other
+expansions return `400`, as on conversation item listing. Malformed or repeated
+scalar query parameters return `400`.
+
+Unknown or unstored responses return `404`. Legacy responses without a saved
+payload return `409`, as on response retrieval. Authentication matches retrieval.
 
 ### `POST /v1/responses/compact`
 

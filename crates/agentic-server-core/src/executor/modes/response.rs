@@ -3,9 +3,9 @@
 use std::collections::HashSet;
 
 use crate::storage::{ResponseData, ResponseMetadata, ResponseStore, StorageError};
-use crate::types::conversations::{ItemOrder, ItemPage, ItemResponse, ListItemsResponse};
-use crate::types::io::InOutItem;
 use crate::types::io::OutputItem;
+use crate::types::io::{InOutItem, InputItem};
+use crate::types::io::{ItemOrder, ItemPage, ListItemsResponse};
 use crate::types::request_response::ResponsePayload;
 
 use super::CommittedResponse;
@@ -55,70 +55,76 @@ impl ResponseHandler {
             })
     }
 
-    /// Deletes a response created with `store=true`.
+    /// Deletes a stored response.
     ///
     /// # Errors
-    /// Returns a storage error for missing IDs or unavailable storage.
+    /// Returns an error if the response is missing or storage is unavailable.
     pub async fn delete(&self, response_id: &str) -> ExecutorResult<()> {
         self.store.delete(response_id).await.map_err(ExecutorError::Storage)
     }
 
-    /// Lists the input items of a response created with `store=true`.
-    ///
-    /// Input items are the full context the response was generated from: items
-    /// inherited through `previous_response_id` or its conversation, including
-    /// earlier turns' outputs, followed by this turn's input. Only this response's
-    /// own output is excluded, identified by the output item IDs recorded when it
-    /// was stored (for older records, the IDs in its stored payload).
-    ///
-    /// Pagination follows conversation item listing: `after` is the public ID of
-    /// the last item on the previous page.
+    /// Resolve client references without overwriting the stored item with supplied content.
+    pub(crate) async fn resolve_input_items(&self, items: &mut [InOutItem]) -> ExecutorResult<()> {
+        let mut seen = HashSet::new();
+        for (index, item) in items.iter_mut().enumerate() {
+            let Some(id) = item.id() else { continue };
+            if !seen.insert(id.to_owned()) {
+                return Err(ExecutorError::UnsupportedValue {
+                    param: "input".into(),
+                    code: None,
+                    message: format!(
+                        "Duplicate item found with id {id}. Remove duplicate items from your input and try again."
+                    ),
+                });
+            }
+            // Validate message identities at admission, never while persisting upstream outputs.
+            if matches!(
+                item,
+                InOutItem::Input(InputItem::Message(_)) | InOutItem::Output(OutputItem::Message(_))
+            ) {
+                item.validate_client_id(format!("input[{index}].id"))?;
+            }
+            if let Some(row) = self.store.get_input_item(id).await? {
+                *item = InOutItem::try_from(&row)?.into_public(row.public_id().to_owned());
+            }
+        }
+        Ok(())
+    }
+
+    /// Lists stored context, excluding this response's own output.
     ///
     /// # Errors
-    /// Returns a storage error for a missing response, an unknown `after` cursor
-    /// or unavailable storage, and a conflict for older records without a
-    /// response snapshot, matching [`Self::retrieve`].
+    /// Returns an error for invalid pagination, missing history, or a legacy response
+    /// without a retrievable snapshot.
     pub async fn list_input_items(&self, response_id: &str, page: ItemPage<'_>) -> ExecutorResult<ListItemsResponse> {
-        let stored = self.store.get(response_id).await?;
-        let snapshot = stored.metadata.response_snapshot.as_deref().ok_or_else(|| {
-            ExecutorError::Conflict(
-                "stored response has no retrievable input items; create a new response with store=true".into(),
-            )
-        })?;
-        // Persistence records the row IDs of this response's own output, including rows
-        // for output kinds whose wire `id` is optional. Older records only have the
-        // snapshot's public IDs, matched against each row's public ID instead.
-        let recorded: Option<HashSet<&str>> = stored
-            .metadata
-            .output_item_ids
-            .as_deref()
-            .map(|ids| ids.iter().map(String::as_str).collect());
-        let snapshot_ids: HashSet<&str> = snapshot.output.iter().filter_map(OutputItem::id).collect();
-        let rows = self.store.history_rows(&stored).await?;
-
-        let mut items = Vec::with_capacity(rows.len());
-        for row in &rows {
-            let item = InOutItem::try_from(row)?;
-            let is_own_output = matches!(item, InOutItem::Output(_))
-                && match &recorded {
-                    Some(ids) => ids.contains(row.id.as_str()),
-                    None => snapshot_ids.contains(row.public_id()),
-                };
-            if !is_own_output {
-                items.push(ItemResponse::new(row.public_id().to_owned(), item));
+        let snapshot = self.retrieve(response_id).await?;
+        let rows = self.store.get_items(response_id).await?;
+        let mut items = rows
+            .into_iter()
+            .map(|row| {
+                let item = InOutItem::try_from(&row)?;
+                Ok(item.into_public(row.public_id().to_owned()))
+            })
+            .collect::<Result<Vec<_>, StorageError>>()?;
+        // Both persistence paths append public outputs after the turn's inputs.
+        // Bound the suffix by this snapshot's output count so an inherited output
+        // remains input even when a turn supplies no new items. Session execution
+        // can already have recorded some outputs as canonical input history.
+        for _ in &snapshot.output {
+            if !items.last().is_some_and(|item| matches!(item, InOutItem::Output(_))) {
+                break;
             }
+            items.pop();
         }
         if page.order == ItemOrder::Desc {
             items.reverse();
         }
-        // A public ID can name several occurrences of an item in the history. Like
-        // conversation item listing, a cursor resumes after the furthest occurrence in
-        // this ordering, so paging always makes progress.
-        let start = match page.after {
+        let start = match page.after.filter(|cursor| !cursor.is_empty()) {
             Some(cursor) => {
+                // Match conversation pagination when a public ID occurs repeatedly.
                 items
                     .iter()
-                    .rposition(|item| item.id == cursor)
+                    .rposition(|item| item.id() == Some(cursor))
                     .ok_or_else(|| StorageError::ItemCursorNotFound { id: cursor.to_owned() })?
                     + 1
             }
@@ -126,8 +132,10 @@ impl ResponseHandler {
         };
         let limit = page.limit.get();
         let has_more = items.len() - start > limit;
-        let data = items.into_iter().skip(start).take(limit).collect();
-        Ok(ListItemsResponse::new(data, has_more))
+        Ok(ListItemsResponse::new(
+            items.into_iter().skip(start).take(limit).collect(),
+            has_more,
+        ))
     }
 
     /// Retrieves the stored response for `previous_response_id`.
@@ -143,7 +151,13 @@ impl ResponseHandler {
             .previous_response_id
             .as_deref()
             .ok_or_else(|| ExecutorError::InvalidRequest("previous_response_id is required for get".into()))?;
-        let mut stored = self.store.get(prev_id).await?;
+        let mut stored = self.store.get(prev_id).await.map_err(|error| {
+            if error.is_not_found() {
+                ExecutorError::PreviousResponseNotFound { id: prev_id.to_owned() }
+            } else {
+                ExecutorError::Storage(error)
+            }
+        })?;
         // Continuation checkpoints retain history and settings, not a duplicate payload.
         stored.metadata.response_snapshot = None;
         Ok(stored)
@@ -192,7 +206,6 @@ impl ResponseHandler {
             effective_tools: ctx.enriched_request.tools.take(),
             tool_search_loaded_tools: None,
             response_snapshot: None,
-            output_item_ids: None,
             effective_tool_choice: ctx
                 .original_request
                 .tool_choice

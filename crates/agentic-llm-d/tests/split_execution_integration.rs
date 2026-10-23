@@ -609,7 +609,6 @@ async fn a_turn_that_cannot_be_stored_is_refused() {
     let ctx = exec_ctx().await;
 
     let unknown = hydrate(request("hi", Some("resp_missing")), &ctx).await;
-    // As OpenAI reports it: a request error naming `previous_response_id`, not a missing resource.
     assert_eq!(status_of(&unknown.expect_err("unknown id")), 400);
 
     // A caller-supplied body gets none of the in-process parser's defaults,

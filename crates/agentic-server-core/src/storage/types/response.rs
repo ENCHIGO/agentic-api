@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::super::models::Response as StorageDbResponse;
-use super::super::models::item::WrittenItem;
 use super::errors::StorageError;
 use crate::types::agent_tree::StoredTreeSnapshot;
 use crate::types::io::ToolChoice;
@@ -23,13 +22,6 @@ pub struct ResponseMetadata {
     /// Exact terminal Responses payload, absent for legacy and non-Responses records.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_snapshot: Option<Box<ResponsePayload>>,
-    /// Item row IDs of this response's own output, in history order.
-    ///
-    /// Recorded by persistence from the rows it actually writes, so it includes IDs
-    /// generated for output kinds whose wire `id` is optional. Absent for records
-    /// written before it existed; readers then fall back to the snapshot's output IDs.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub output_item_ids: Option<Vec<String>>,
     pub model: String,
     pub previous_response_id: Option<String>,
     pub effective_tools: Option<Vec<ResponsesTool>>,
@@ -118,36 +110,11 @@ pub(in crate::storage) fn decode_metadata(
     })
 }
 
-impl ResponseMetadata {
-    /// Encode the metadata of a response whose items were just written, recording
-    /// the row IDs of its own output occurrences.
-    ///
-    /// # Errors
-    /// Returns [`StorageError::Serialization`] if the metadata cannot be encoded.
-    pub(in crate::storage) fn serialize_with_output_rows(
-        &self,
-        written: &[WrittenItem],
-    ) -> Result<String, StorageError> {
-        String::try_from(Self {
-            output_item_ids: Some(WrittenItem::output_row_ids(written)),
-            ..self.clone()
-        })
-    }
-}
-
 impl TryFrom<&ResponseMetadata> for String {
     type Error = StorageError;
 
     fn try_from(metadata: &ResponseMetadata) -> Result<Self, Self::Error> {
-        Self::try_from(metadata.clone())
-    }
-}
-
-/// Sanitizes stored tool credentials in place, then encodes the metadata.
-impl TryFrom<ResponseMetadata> for String {
-    type Error = StorageError;
-
-    fn try_from(mut persisted: ResponseMetadata) -> Result<Self, Self::Error> {
+        let mut persisted = metadata.clone();
         if let Some(tools) = persisted.effective_tools.as_mut() {
             for tool in tools {
                 tool.sanitize_for_persistence();
@@ -255,7 +222,6 @@ mod tests {
             effective_tools: None,
             tool_search_loaded_tools: None,
             response_snapshot: None,
-            output_item_ids: None,
             effective_tool_choice: ToolChoice::Auto,
             effective_instructions: Some("be helpful".to_string()),
         };

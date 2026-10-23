@@ -12,12 +12,13 @@ use agentic_core::executor::telemetry::Api;
 use agentic_core::executor::{ExecuteRequest, compact_response as execute_compaction};
 use agentic_core::proxy::ProxyRequest;
 use agentic_core::tool::ToolSearchHandler;
+use agentic_core::types::io::DeletedResponse;
 use agentic_core::types::request_response::{CompactRequest, PromptCacheOptions, RequestPayload, ResponseTextConfig};
 
 use super::super::common::{
     convert_response, executor_error_response, extract_bearer, read_bytes, read_json, sse_response,
 };
-use super::conversation_items::ListItemsQuery;
+use super::items::ListItemsQuery;
 use crate::app::AppState;
 
 // Only executor requests interpret text and prompt-cache options. Proxy requests retain their raw body.
@@ -165,7 +166,7 @@ pub async fn retrieve_response(State(state): State<AppState>, Path(response_id):
     path = "/v1/responses/{response_id}",
     params(("response_id" = String, Path, description = "Stored response ID")),
     responses(
-        (status = 200, description = "Response deleted", body = agentic_core::types::conversations::DeletedResponse),
+        (status = 200, description = "Response deleted", body = agentic_core::types::io::DeletedResponse),
         (status = 401, description = "Missing or invalid bearer token", body = crate::openapi::ApiErrorResponse),
         (status = 404, description = "Response not found", body = crate::openapi::ApiErrorResponse),
     ),
@@ -174,10 +175,7 @@ pub async fn retrieve_response(State(state): State<AppState>, Path(response_id):
 ))]
 pub async fn delete_response(State(state): State<AppState>, Path(response_id): Path<String>) -> Response {
     match state.exec_ctx.resp_handler.delete(&response_id).await {
-        Ok(()) => axum::Json(agentic_core::types::conversations::DeletedResponse::response(
-            response_id,
-        ))
-        .into_response(),
+        Ok(()) => axum::Json(DeletedResponse::response(response_id)).into_response(),
         Err(error) => executor_error_response(error),
     }
 }
@@ -207,9 +205,9 @@ pub async fn delete_response(State(state): State<AppState>, Path(response_id): P
 pub async fn list_input_items(
     State(state): State<AppState>,
     Path(response_id): Path<String>,
-    RawQuery(raw): RawQuery,
+    RawQuery(query): RawQuery,
 ) -> Response {
-    let query = match ListItemsQuery::parse(raw.as_deref()) {
+    let query = match ListItemsQuery::parse(query.as_deref()) {
         Ok(query) => query,
         Err(error) => return *error,
     };

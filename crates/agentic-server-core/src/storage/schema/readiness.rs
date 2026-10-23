@@ -18,11 +18,7 @@ pub(crate) async fn verify_persistence_writable(pool: &DbPool) -> DbResult<()> {
         crate::storage::models::conversation::lock_in_tx(&mut transaction, &conversation_id).await?;
         crate::storage::models::item::create_in_tx(
             &mut transaction,
-            vec![crate::storage::models::item::NewItem {
-                id: item_id.clone(),
-                data: "{}".to_owned(),
-                role: crate::storage::models::item::ItemRole::Input,
-            }],
+            vec![(item_id.clone(), "{}".to_owned())],
             Some(&conversation_id),
         )
         .await

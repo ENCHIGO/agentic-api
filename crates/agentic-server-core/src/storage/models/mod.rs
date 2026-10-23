@@ -2,7 +2,6 @@
 
 pub mod conversation;
 pub mod item;
-mod new_item;
 pub mod response;
 
 pub use conversation::Conversation;

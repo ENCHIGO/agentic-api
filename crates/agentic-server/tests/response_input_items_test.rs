@@ -166,6 +166,17 @@ async fn input_items_list_the_inherited_context_without_the_response_own_output(
     }
     assert_eq!(walked, ["first", "answer 0", "second"]);
 
+    // OpenAI removes the deleted parent's turn from the surviving child's input window.
+    let deleted = harness
+        .client
+        .delete(format!("{}/v1/responses/{first_id}", harness.url))
+        .bearer_auth("test-key")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(deleted.status(), StatusCode::OK);
+    assert_eq!(texts(&harness.page(second_id, "?order=asc").await), ["second"]);
+
     harness.stop().await;
 }
 
@@ -227,23 +238,31 @@ async fn input_items_reject_what_retrieval_rejects() {
     for missing in [transient["id"].as_str().unwrap(), "resp_missing"] {
         assert_eq!(harness.input_items(missing, "").await.status(), StatusCode::NOT_FOUND);
     }
-    for (query, message) in [
-        ("?limit=0", "limit must be between 1 and 100"),
-        ("?limit=101", "limit must be between 1 and 100"),
-        ("?limit=ten", "limit must be between 1 and 100"),
-        ("?limit=1&limit=2", "'limit' must be given at most once"),
-        ("?order=sideways", "order must be 'asc' or 'desc'"),
-        ("?include=no.such.field", "unknown include value 'no.such.field'"),
-        // Hosted tool results come from data sources the gateway does not keep.
-        (
-            "?include[]=web_search_call.results",
-            "include value 'web_search_call.results' is not supported",
-        ),
+    // Recorded OpenAI edge cases accept an empty page and known include fields.
+    let empty = harness.page(stored_id, "?limit=0").await;
+    assert_eq!(empty["data"], json!([]));
+    assert_eq!(empty["has_more"], true);
+    assert_eq!(
+        harness
+            .input_items(stored_id, "?include[]=web_search_call.results")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    for (query, code, param) in [
+        ("?limit=101", "integer_above_max_value", "limit"),
+        ("?limit=-1", "integer_below_min_value", "limit"),
+        ("?order=sideways", "invalid_value", "order"),
+        ("?include=no.such.field", "invalid_value", "include[0]"),
+        ("?limit=ten", "invalid_type", "limit"),
+        ("?limit=1&limit=2", "duplicate_parameter", "limit"),
     ] {
         let response = harness.input_items(stored_id, query).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{query}");
         let body: Value = response.json().await.expect("a structured error body");
-        assert_eq!(body["error"]["message"], message, "{query}");
+        assert_eq!(body["error"]["type"], "invalid_request_error", "{query}");
+        assert_eq!(body["error"]["code"], code, "{query}");
+        assert_eq!(body["error"]["param"], param, "{query}");
     }
     // Same contract as conversation item listing: an unknown cursor is a not-found naming `after`.
     let unknown_cursor = harness.input_items(stored_id, "?after=msg_unknown").await;
@@ -306,6 +325,27 @@ async fn input_items_exclude_own_output_items_that_carry_no_wire_id() {
         .collect();
     assert_eq!(types, ["message", "compaction", "message", "message"], "{next}");
     assert!(next["data"][1]["id"].as_str().unwrap().starts_with("cmp_"));
+
+    // Conversation turns exclude appended outputs without wire IDs too.
+    let conversation: Value = harness
+        .client
+        .post(format!("{}/v1/conversations", harness.url))
+        .bearer_auth("test-key")
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let in_conversation = harness
+        .create(json!({"model":"test-model", "input":"conversation input", "store":true,
+            "conversation":conversation["id"]}))
+        .await;
+    let conversation_inputs = harness
+        .page(in_conversation["id"].as_str().unwrap(), "?order=asc")
+        .await;
+    assert_eq!(texts(&conversation_inputs), ["conversation input"]);
     harness.stop().await;
 }
 
@@ -339,7 +379,7 @@ async fn input_items_keep_an_earlier_turn_output_that_shares_this_turn_output_id
 }
 
 #[tokio::test]
-async fn input_items_accept_repeated_include_values_that_stored_items_carry() {
+async fn input_items_reuse_conversation_query_parameters() {
     let harness = Harness::start().await;
     let stored = harness
         .create(
@@ -351,8 +391,7 @@ async fn input_items_accept_repeated_include_values_that_stored_items_carry() {
     let page = harness
         .page(
             stored["id"].as_str().unwrap(),
-            "?include[]=message.input_image.image_url&include[]=message.output_text.logprobs\
-             &include=reasoning.encrypted_content",
+            "?include[]=message.output_text.logprobs",
         )
         .await;
     assert_eq!(
@@ -406,5 +445,22 @@ async fn input_item_pages_make_progress_past_a_repeated_public_id() {
         }
         assert_eq!(walked, expected, "{order}");
     }
+    harness.stop().await;
+}
+
+#[tokio::test]
+async fn an_empty_input_turn_keeps_the_previous_answer_in_its_input_list() {
+    let harness = Harness::start().await;
+    let first = harness
+        .create(json!({"model":"test-model", "input":"first", "store":true}))
+        .await;
+    let second = harness
+        .create(json!({"model":"test-model", "input":[], "store":true,
+        "previous_response_id":first["id"]}))
+        .await;
+    assert_eq!(
+        texts(&harness.page(second["id"].as_str().unwrap(), "?order=asc").await),
+        ["first", "answer 0"]
+    );
     harness.stop().await;
 }

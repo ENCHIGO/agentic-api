@@ -3,6 +3,7 @@ pub(crate) mod chat_completions;
 pub(crate) mod conversation_items;
 pub(crate) mod conversations;
 pub(crate) mod embeddings;
+pub(crate) mod items;
 pub(crate) mod messages;
 pub(crate) mod models;
 pub(crate) mod responses;

@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use super::models::{conversation, item, response};
+use super::models::{item, response};
 use super::pool::DbPool;
 use super::types::{ResponseData, ResponseMetadata, StorageError, StoreResult};
 use crate::types::io::InOutItem;
-use crate::utils::common::serialize_to_string;
+use crate::utils::common::{deserialize_from_str, serialize_to_string};
 
 /// Response storage operations.
 #[derive(Clone, Debug)]
@@ -58,44 +58,50 @@ impl ResponseStore {
         row.try_into()
     }
 
-    /// Deletes a stored response and the history rows nothing else keeps.
-    ///
-    /// Descendants created with `previous_response_id` stay readable because each
-    /// one stores its own complete history item list; their reference to the
-    /// deleted response is cleared by the foreign key, and the rows they list are kept.
-    /// Rows that belong to a conversation stay with it. When the response was its
-    /// conversation's latest, the conversation moves to its newest remaining response.
-    ///
-    /// Deletion does not reach WebSocket sessions. A session that already caches this
-    /// response as its latest checkpoint keeps continuing from it without a storage
-    /// read; those sessions live per connection, possibly on another replica, and a
-    /// storage check on that path would reorder automatic steering successors.
+    /// Deletes a response without deleting shared history items.
     ///
     /// # Errors
-    ///
-    /// Returns [`StorageError::NotFound`] if no response has this ID, or an error
-    /// if the database statement fails or the store is disabled.
+    /// Returns an error if the response is missing, storage is disabled, or deletion fails.
     pub async fn delete(&self, response_id: &str) -> StoreResult<()> {
         let mut tx = self.pool()?.begin().await?;
-        let Some(row) = response::get_in_tx(&mut tx, response_id).await? else {
+        if !response::delete_in_tx(&mut tx, response_id).await? {
             return Err(StorageError::not_found("Response", response_id));
-        };
-        // Same lock order as conversation persistence: the conversation, then its responses.
-        if let Some(conversation_id) = row.conversation_id.as_deref() {
-            match conversation::lock_in_tx(&mut tx, conversation_id).await {
-                Ok(_) | Err(sqlx::Error::RowNotFound) => {}
-                Err(error) => return Err(error.into()),
-            }
         }
-        let history_item_ids = row.history_item_ids_vec().map_err(StorageError::Serialization)?;
-        // Before the delete: its foreign key would clear the pointer this matches on.
-        if let Some(conversation_id) = row.conversation_id.as_deref() {
-            response::repoint_latest_in_tx(&mut tx, conversation_id, response_id).await?;
-        }
-        response::delete_in_tx(&mut tx, response_id).await?;
-        response::delete_unreferenced_items_in_tx(&mut tx, &history_item_ids).await?;
         tx.commit().await?;
         Ok(())
+    }
+
+    /// Resolve a supplied public item ID when storage is configured.
+    ///
+    /// # Errors
+    /// Returns an error if the database query fails.
+    pub async fn get_input_item(&self, id: &str) -> StoreResult<Option<item::Item>> {
+        let Some(pool) = self.pool.as_deref() else {
+            return Ok(None);
+        };
+        Ok(item::get_by_public_id(pool, id).await?)
+    }
+
+    /// Loads the response's existing item rows in history order.
+    ///
+    /// # Errors
+    /// Returns an error for missing or invalid history, unavailable storage, or query failure.
+    pub async fn get_items(&self, response_id: &str) -> StoreResult<Vec<item::Item>> {
+        let pool = self.pool()?;
+        let json = response::get_item_ids(pool, response_id)
+            .await?
+            .ok_or_else(|| StorageError::not_found("Response", response_id))?;
+        let ids: Vec<String> = deserialize_from_str(&json).map_err(|_| StorageError::InvalidResponseHistory {
+            response_id: response_id.to_owned(),
+        })?;
+        let mut rows: HashMap<_, _> = item::get_items(pool, &ids)
+            .await?
+            .into_iter()
+            .map(|row| (row.id.clone(), row))
+            .collect();
+        ids.into_iter()
+            .map(|id| rows.remove(&id).ok_or(StorageError::InvalidHistoryItem { item_id: id }))
+            .collect()
     }
 
     /// Rehydrates a response with full history.
@@ -107,36 +113,28 @@ impl ResponseStore {
     /// Returns an error if a history item is missing or invalid, the database query
     /// fails, or the store is disabled.
     pub async fn rehydrate(&self, response_id: &str) -> StoreResult<Vec<InOutItem>> {
+        let pool = self.pool()?;
         let response = self.get(response_id).await?;
-        self.history_rows(&response)
-            .await?
-            .iter()
-            .map(InOutItem::try_from)
-            .collect()
-    }
+        let rows = item::get_items(pool, &response.history_item_ids).await?;
+        let mut items_by_id: HashMap<String, InOutItem> = rows
+            .into_iter()
+            .map(|row| {
+                let item = InOutItem::try_from(&row)?;
+                Ok((row.id, item))
+            })
+            .collect::<StoreResult<_>>()?;
 
-    /// Loads the stored rows of a response's history, oldest first.
-    ///
-    /// The history is the full context recorded when the response was stored:
-    /// items inherited through `previous_response_id` or its conversation, this
-    /// turn's input, and this turn's output.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if a history item is missing, the database query fails,
-    /// or the store is disabled.
-    pub(crate) async fn history_rows(&self, response: &ResponseData) -> StoreResult<Vec<item::Item>> {
-        let rows = item::get_items(self.pool()?, &response.history_item_ids).await?;
-        let mut rows_by_id: HashMap<String, item::Item> = rows.into_iter().map(|row| (row.id.clone(), row)).collect();
-        response
+        let ordered_items = response
             .history_item_ids
             .iter()
             .map(|id| {
-                rows_by_id
+                items_by_id
                     .remove(id)
                     .ok_or_else(|| StorageError::InvalidHistoryItem { item_id: id.clone() })
             })
-            .collect()
+            .collect::<StoreResult<_>>()?;
+
+        Ok(ordered_items)
     }
 
     /// Persists a response with its items and metadata.
@@ -176,14 +174,14 @@ impl ResponseStore {
             Some(prev_id) => self.get(prev_id).await?.history_item_ids,
             None => Vec::new(),
         };
-        let items_ = item::serialize_new_items(new_items, item::ItemSource::ResponseHistory)?;
+        let items_ = item::serialize_new_items(new_items)?;
+        let metadata_json = String::try_from(metadata)?;
 
         let mut tx = pool.begin().await?;
 
         // History rows get their own row IDs, so repeated public IDs keep every position.
-        let written = item::create_in_tx(&mut tx, items_, None).await?;
-        let metadata_json = metadata.serialize_with_output_rows(&written)?;
-        item_ids.extend(written.into_iter().map(|item| item.row.id));
+        let created = item::create_in_tx(&mut tx, items_, None).await?;
+        item_ids.extend(created.into_iter().map(|item| item.id));
         let history_item_ids_json = serialize_to_string(&item_ids)?;
 
         response::create_in_tx(

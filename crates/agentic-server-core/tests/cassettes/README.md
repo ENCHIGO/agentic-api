@@ -37,6 +37,113 @@ printf 'What did I just show you?\n' | python tests/cassettes/record_cassette.py
 
 The recorder scripts (`record_reasoning_cassettes.sh`, `record_tool_call_cassettes.sh`, etc.) use `printf` to feed fixed prompts per test so no manual input is needed.
 
+`record_responses_api_cassettes.sh` extends the existing recorder's `items` mode.
+Each provider gets one flat `turns` list per suite, using the same capture format as
+`cassettes/conversations`. Individual edge probes record the observed status rather
+than assuming that OpenAI and the gateway accept the same requests.
+
+| `RESPONSES_SCENARIO` | HTTP turns | Coverage |
+| --- | --- | --- |
+| `lifecycle` | 19 | Stored parent/child responses, input pages, retrieval, parent deletion, child visibility, continued inference after deletion, repeated deletion. |
+| `pagination` | 16 | Ascending, descending and default order; one-item pages; limit 100; cursors at the end; a cursor from an unrelated response. |
+| `edge-cases` | 23 | Unstored/missing IDs; missing parent; invalid, repeated and out-of-range query parameters; unknown and repeated includes; repeated deletion. |
+| `conversation` | 19 | Responses attached to a conversation, manual item insertion/deletion, snapshots before and after mutations, response deletion, conversation deletion. |
+| `replayed-items` | 14 | Generated-ID reuse, two copies of an ID with different content, wrong-prefix IDs, function call/output history without public item IDs, seed immutability after probes. |
+| `tool-items` | 40 | Replay existing OpenAI web-search, MCP, code-interpreter, shell and custom-tool histories; inspect input items with original tool fields, omitted IDs, omitted statuses, and both omitted. |
+
+From the worktree root, with an inference server already running:
+
+```bash
+# One-time recorder dependencies.
+uv venv .venv
+uv pip install --python .venv/bin/python -r crates/agentic-server-core/tests/cassettes/recorder-requirements.txt
+
+# Start the release gateway in a separate terminal; persistence must be enabled.
+AGENTIC_API_HOME=/home/akk/maral/res/.agentic-api \
+  ./target/release/agentic-server --llm-api-base http://127.0.0.1:5050 --gateway-port 9000
+
+# Load credentials without printing them. Record each provider independently.
+set -a; source /home/akk/maral/res/.env; set +a
+RESPONSES_RECORD_SET=openai OPENAI_MODEL=gpt-4.1 \
+  bash crates/agentic-server-core/tests/cassettes/record_responses_api_cassettes.sh
+RESPONSES_RECORD_SET=gateway GATEWAY_MODEL=Qwen/Qwen3.8-27B-FP8 GATEWAY_URL=http://127.0.0.1:9000 \
+  bash crates/agentic-server-core/tests/cassettes/record_responses_api_cassettes.sh
+
+# Replay both providers' recordings through the actual gateway handlers.
+cargo build --locked -p agentic-server --bin agentic-server
+cargo test --locked -p agentic-server-core --test responses_api_test
+```
+
+Use the exact model alias served by your inference engine for `GATEWAY_MODEL`.
+`RESPONSES_SCENARIO=all` is the default; select any row above to replace only that suite.
+`RESPONSES_STREAM_MODE=nonstreaming` is the default. Set `streaming` or `both` to
+exercise streamed response creation as well; management calls still return JSON.
+The `replayed-items` suite keeps admission probes non-streaming so rejected request
+bodies remain inspectable, while its seed response follows the selected mode.
+Files are named `responses/response-<scenario>-<provider>.yaml`, with `-stream`
+appended to the scenario for streaming runs. Incomplete recordings remain `.yaml.tmp`
+and do not replace a previously validated capture.
+
+The `tool-items` suite loads the existing non-streaming OpenAI references in
+`web_search/`, `mcp/`, `code_interpreter/`, `shell/`, and `custom_tool/`. It keeps
+the complete recorded history, including reasoning dependencies and call/output
+pairs, and submits it in a new stored response without enabling tools. Only the
+selected tool items' `id` and `status` fields are omitted in the variant probes.
+Each creation is followed by `GET /responses/{id}/input_items`; rejected creations
+are followed by a missing-response lookup, never another response's history.
+These admission probes always use JSON and are recorded once even when both
+transports are selected. To refresh just this reference:
+
+```bash
+RESPONSES_RECORD_SET=openai RESPONSES_SCENARIO=tool-items OPENAI_MODEL=gpt-5.6 \
+  bash crates/agentic-server-core/tests/cassettes/record_responses_api_cassettes.sh
+```
+
+Use the source recordings' reasoning-compatible model for this suite. The recorded
+reference accepts 18 of 20 creations: code-interpreter items require an ID, but
+OpenAI assigns them new IDs in these replays. All
+accepted tool items have resource IDs in the input-items page. `mcp_list_tools`
+has no status; the other selected items have statuses. Shell/custom calls without
+IDs are listed as `in_progress`, including when a completed custom call was
+submitted; with their original recorded IDs they are listed as `completed`.
+Their output items are listed as `completed`. These observations distinguish
+replaying existing item identities from submitting history without identities;
+they do not justify a universal status default.
+
+`recorded_tool_history_ids_and_statuses` asserts this OpenAI reference directly.
+The new suite does not yet establish live gateway parity; the five existing
+management suites below continue to run through the gateway.
+
+`RESPONSES_CASSETTES_DIR` overrides the output/replay directory and
+`RECORDER_PROXY_PORT` overrides the local proxy port (default 7070).
+Repeated query values are retained as arrays in `request.query_params`; a single
+value remains a string. No observed response body or status is rewritten.
+
+The Rust tests require the five original suites for both providers in JSON and streaming mode.
+They assert the recordings directly, then replay every management request through
+a local gateway process with only inference mocked. `RESPONSES_GATEWAY_BIN` can
+select an explicitly built binary; otherwise the tests use `agentic-server` from
+the Cargo profile directory. Error `type`, `code`, and `param` are checked against
+the OpenAI reference. Log probabilities are excluded from item comparisons.
+The lifecycle suite also checks that the continuation retains the surviving child's
+history and new user message after parent deletion, and inspects the live gateway's
+upstream request to ensure the deleted parent's user message is not sent to inference.
+Default statuses for client-supplied function history are deferred to the item-type
+refactor: OpenAI lists an omitted function-call status as `in_progress` and an omitted
+function-result status as `completed`; the gateway currently leaves them absent.
+Comparisons tolerate only absence versus these two recorded defaults. Other status
+values remain checked, and the captured YAML is unchanged. `FunctionToolResultMessage`
+retains only `call_id` and `output`; function-result resource IDs and supplied statuses
+are also deferred to that refactor, so these replays do not establish parity for those
+fields. Function results still retain their `call_id` association.
+Stateless creation remains upstream pass-through on this branch, so its optional
+`store` response field is not compared across providers; subsequent CRUD calls
+verify that the response was not retained. Differences in model-generated output
+are checked within each provider's pages, while client input must match across providers.
+
+Reference: [Responses input items](https://developers.openai.com/api/reference/resources/responses/subresources/input_items/methods/list)
+and [Conversation items](https://developers.openai.com/api/reference/resources/conversations/subresources/items/methods/list).
+
 ## Mid-turn steering exploration
 
 `record_multi_turn_steering_cassettes.sh` records OpenAI references or gateway observations of the WebSocket
