@@ -13,6 +13,7 @@ use std::sync::Arc;
 use tokio::process::{Child, Command};
 
 use agentic_core::events::normalize_sse_line;
+use agentic_core::types::io::InOutItem;
 use axum::{Json, Router, response::IntoResponse, routing::post};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
@@ -126,7 +127,20 @@ fn error_metadata(body: &Value) -> Value {
 fn compare_items(expected: &[Value], actual: &[Value], ids: &mut HashMap<String, String>, location: &str) {
     assert_eq!(expected.len(), actual.len(), "{location}: item count");
     for (left, right) in expected.iter().zip(actual) {
-        let mut expected = item_signature(left);
+        // Old pass-through recordings are model fixtures. Derive the expected
+        // public shape from the existing item contract; keep the actual wire
+        // response intact so unexpected nulls or missing values fail comparison.
+        let recorded: InOutItem = serde_json::from_value(left.clone()).expect("recorded input/output item");
+        let mut expected = item_signature(&serde_json::to_value(recorded).unwrap());
+        for (field, value) in item_signature(left).as_object().unwrap() {
+            if !value.is_null() {
+                assert_eq!(
+                    expected.get(field),
+                    Some(value),
+                    "{location}: recorded {field} must be preserved"
+                );
+            }
+        }
         let result_prefix = match left["type"].as_str() {
             Some("function_call_output") => Some("fc_"),
             Some("custom_tool_call_output") => Some("ctco_"),
@@ -181,9 +195,7 @@ fn assert_exchange(expected: &Value, actual: &Value, ids: &mut HashMap<String, S
     }
     if let Some(output) = expected["output"].as_array() {
         compare_items(output, actual["output"].as_array().unwrap(), ids, location);
-        for field in ["status", "store"] {
-            assert_eq!(actual[field], expected[field], "{location}: {field}");
-        }
+        assert_eq!(actual["status"], expected["status"], "{location}: status");
     }
     if expected.get("deleted").is_some() {
         assert_eq!(actual["deleted"], expected["deleted"], "{location}: deleted");
@@ -253,15 +265,19 @@ async fn replay_turn(
         );
         return;
     }
+    if actual["output"].is_array() {
+        // Assert the effective setting even when old pass-through captures omit it.
+        // Retrieval only returns stored responses; POST defaults store to true.
+        assert_eq!(
+            actual["store"],
+            body.get("store").and_then(Value::as_bool).unwrap_or(true),
+            "{location}: store"
+        );
+    }
     assert_exchange(&terminal(&turn["response"]), &actual, ids, location);
 }
 
 async fn spawn_gateway(upstream_url: &str, home: &Path, client: &reqwest::Client) -> (String, Child) {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port();
     let binary = std::env::var_os("RESPONSES_GATEWAY_BIN").map_or_else(
         || {
             std::env::current_exe()
@@ -280,7 +296,7 @@ async fn spawn_gateway(upstream_url: &str, home: &Path, client: &reqwest::Client
         .env_clear()
         .env("AGENTIC_API_HOME", home)
         .env("OPENAI_API_KEY", "test-key")
-        .env("RUST_LOG", "warn")
+        .env("RUST_LOG", "warn,agentic_server::server=info")
         .args([
             "--llm-api-base",
             upstream_url,
@@ -288,7 +304,7 @@ async fn spawn_gateway(upstream_url: &str, home: &Path, client: &reqwest::Client
             "--gateway-host",
             "127.0.0.1",
             "--gateway-port",
-            &port.to_string(),
+            "0",
             "--db-url",
             "sqlite://?mode=memory",
         ])
@@ -298,7 +314,6 @@ async fn spawn_gateway(upstream_url: &str, home: &Path, client: &reqwest::Client
         .kill_on_drop(true)
         .spawn()
         .expect("build the gateway first: cargo build -p agentic-server --bin agentic-server");
-    let url = format!("http://127.0.0.1:{port}");
     let ready = tokio::time::timeout(Duration::from_secs(15), async {
         loop {
             assert!(
@@ -306,13 +321,21 @@ async fn spawn_gateway(upstream_url: &str, home: &Path, client: &reqwest::Client
                 "gateway exited: {}",
                 std::fs::read_to_string(&log_path).unwrap()
             );
-            if client
-                .get(format!("{url}/health"))
-                .send()
-                .await
-                .is_ok_and(|response| response.status().is_success())
+            // Let the child bind its own ephemeral port. Releasing a temporary
+            // listener before spawning can send parallel tests to another child.
+            let log = std::fs::read_to_string(&log_path).unwrap();
+            if let Some(address) = log
+                .lines()
+                .find_map(|line| line.split_once("gateway listening on "))
+                .map(|(_, address)| address.trim())
+                && let url = format!("http://{address}")
+                && client
+                    .get(format!("{url}/health"))
+                    .send()
+                    .await
+                    .is_ok_and(|response| response.status().is_success())
             {
-                break;
+                break url;
             }
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
@@ -323,7 +346,7 @@ async fn spawn_gateway(upstream_url: &str, home: &Path, client: &reqwest::Client
         "gateway did not start: {}",
         std::fs::read_to_string(&log_path).unwrap()
     );
-    (url, gateway)
+    (ready.unwrap(), gateway)
 }
 
 async fn replay(scenario: &str, provider: &str, turns: &[Value]) {

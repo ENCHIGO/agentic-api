@@ -54,7 +54,9 @@ impl ResponseStore {
         let pool = self.pool()?;
         let row = response::get(pool, response_id)
             .await?
-            .ok_or_else(|| StorageError::not_found("Response", response_id))?;
+            .ok_or_else(|| StorageError::ResponseNotFound {
+                id: response_id.to_owned(),
+            })?;
         row.try_into()
     }
 
@@ -65,7 +67,9 @@ impl ResponseStore {
     pub async fn delete(&self, response_id: &str) -> StoreResult<()> {
         let mut tx = self.pool()?.begin().await?;
         if !response::delete_in_tx(&mut tx, response_id).await? {
-            return Err(StorageError::not_found("Response", response_id));
+            return Err(StorageError::ResponseNotFound {
+                id: response_id.to_owned(),
+            });
         }
         tx.commit().await?;
         Ok(())
@@ -90,7 +94,9 @@ impl ResponseStore {
         let pool = self.pool()?;
         let json = response::get_item_ids(pool, response_id)
             .await?
-            .ok_or_else(|| StorageError::not_found("Response", response_id))?;
+            .ok_or_else(|| StorageError::ResponseNotFound {
+                id: response_id.to_owned(),
+            })?;
         let ids: Vec<String> = deserialize_from_str(&json).map_err(|_| StorageError::InvalidResponseHistory {
             response_id: response_id.to_owned(),
         })?;

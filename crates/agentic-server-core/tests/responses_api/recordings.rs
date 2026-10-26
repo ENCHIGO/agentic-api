@@ -1,8 +1,10 @@
 //! Assertions over the unchanged recordings, independent of live replay.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::panic::catch_unwind;
+use std::slice;
 
-use super::{cassette, error_metadata, item_signature, terminal};
+use super::{cassette, compare_items, error_metadata, item_signature, terminal};
 use serde_json::{Value, json};
 
 const SCENARIOS: [&str; 5] = [
@@ -274,6 +276,86 @@ fn deferred_tool_status_defaults_do_not_hide_other_statuses() {
         assert_eq!(item_signature(&absent), item_signature(&recorded));
         recorded["status"] = json!("incomplete");
         assert_ne!(item_signature(&absent), item_signature(&recorded));
+    }
+}
+
+#[test]
+fn legacy_recorded_nulls_require_canonical_gateway_output() {
+    for (recorded, canonical, fields) in [
+        (
+            json!({"type":"reasoning", "id":"rs_1", "content":[], "summary":[],
+                   "encrypted_content":null, "status":null}),
+            json!({"type":"reasoning", "id":"rs_1", "content":[], "summary":[]}),
+            vec!["encrypted_content", "status"],
+        ),
+        (
+            json!({"type":"message", "id":"msg_1", "role":"assistant", "content":[],
+                   "status":"completed", "phase":null}),
+            json!({"type":"message", "id":"msg_1", "role":"assistant", "content":[],
+                   "status":"completed"}),
+            vec!["phase"],
+        ),
+    ] {
+        compare_items(
+            slice::from_ref(&recorded),
+            slice::from_ref(&canonical),
+            &mut HashMap::new(),
+            "canonical output",
+        );
+        for field in fields {
+            let mut actual = canonical.clone();
+            actual[field] = Value::Null;
+            assert!(
+                catch_unwind(|| {
+                    compare_items(
+                        slice::from_ref(&recorded),
+                        slice::from_ref(&actual),
+                        &mut HashMap::new(),
+                        "unexpected null",
+                    );
+                })
+                .is_err(),
+                "unexpected null {field} must fail"
+            );
+        }
+    }
+}
+
+#[test]
+fn reasoning_comparison_preserves_non_null_values() {
+    let recorded = json!({"type":"reasoning", "id":"rs_1", "status":"completed",
+        "encrypted_content":"opaque-state", "summary":[],
+        "content":[{"type":"reasoning_text", "text":"original reasoning"}]});
+    compare_items(
+        slice::from_ref(&recorded),
+        slice::from_ref(&recorded),
+        &mut HashMap::new(),
+        "unchanged reasoning",
+    );
+    for (field, value) in [
+        ("status", json!("incomplete")),
+        ("encrypted_content", json!(null)),
+        ("encrypted_content", json!("changed state")),
+        (
+            "content",
+            json!([{ "type":"reasoning_text", "text":"changed reasoning" }]),
+        ),
+        ("summary", json!([{ "type":"summary_text", "text":"changed summary" }])),
+    ] {
+        let mut actual = recorded.clone();
+        actual[field] = value;
+        assert!(
+            catch_unwind(|| {
+                compare_items(
+                    slice::from_ref(&recorded),
+                    slice::from_ref(&actual),
+                    &mut HashMap::new(),
+                    "changed reasoning",
+                );
+            })
+            .is_err(),
+            "changed {field} must fail"
+        );
     }
 }
 

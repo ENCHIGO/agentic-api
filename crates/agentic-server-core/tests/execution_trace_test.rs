@@ -427,6 +427,7 @@ async fn failure_before_execution_starts_is_not_delivered() {
         panic!("unknown previous_response_id fails rehydration");
     };
     assert_eq!(error.http_status(), 400, "{error}");
+    assert_eq!(error.error_code(), "previous_response_not_found");
 
     let span = traces.execute_span().await;
     assert_execute_attributes(&span, false, "failed", "not_started");

@@ -9,6 +9,7 @@ use agentic_core::executor::request::RequestContext;
 use agentic_core::executor::{
     ExecutionContext, ExecutorError, execute, persist_response, persist_turn, rehydrate_conversation,
 };
+use agentic_core::storage::StorageError;
 use agentic_core::types::io::InOutItem;
 use agentic_core::types::request_response::{RequestPayload, ResponsePayload};
 use agentic_core::types::tools::{FunctionToolParam, NonEmptyToolName};
@@ -650,7 +651,10 @@ async fn test_store_false_with_previous_response_id_hydrates_but_does_not_persis
         panic!("store=false response must not be persisted");
     };
     assert!(
-        matches!(&error, ExecutorError::PreviousResponseNotFound { .. }),
+        matches!(
+            &error,
+            ExecutorError::Storage(StorageError::PreviousResponseNotFound { .. })
+        ),
         "expected a missing previous response, got {error}"
     );
     assert_eq!(
@@ -734,7 +738,7 @@ async fn test_public_persist_steps_honor_the_storage_policy() {
 async fn is_continuable(exec_ctx: &ExecutionContext, id: &str) -> bool {
     match rehydrate_conversation(make_request("next", true, false, Some(id.to_owned()), None), exec_ctx).await {
         Ok(_) => true,
-        Err(ExecutorError::PreviousResponseNotFound { .. }) => false,
+        Err(ExecutorError::Storage(StorageError::PreviousResponseNotFound { .. })) => false,
         Err(error) => panic!("unexpected rehydration error for {id}: {error}"),
     }
 }
@@ -1005,7 +1009,10 @@ async fn tool_search_store_false_manual_replay_completes_without_reusable_respon
         .get(&lookup_ctx)
         .await
         .expect_err("store:false response ID must not be reusable");
-    assert!(matches!(error, ExecutorError::PreviousResponseNotFound { .. }));
+    assert!(matches!(
+        error,
+        ExecutorError::Storage(StorageError::PreviousResponseNotFound { .. })
+    ));
 }
 
 #[tokio::test]

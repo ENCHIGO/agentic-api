@@ -40,7 +40,7 @@ impl ResponseHandler {
     /// Retrieves the terminal payload of a response created with `store=true`.
     ///
     /// # Errors
-    /// Returns a storage error for missing IDs or unavailable storage, and a conflict
+    /// Returns `ResponseNotFound` for missing IDs, a storage error for unavailable storage, and a conflict
     /// for older records that contain continuation history but no response snapshot.
     pub async fn retrieve(&self, response_id: &str) -> ExecutorResult<ResponsePayload> {
         let stored = self.store.get(response_id).await?;
@@ -153,7 +153,7 @@ impl ResponseHandler {
             .ok_or_else(|| ExecutorError::InvalidRequest("previous_response_id is required for get".into()))?;
         let mut stored = self.store.get(prev_id).await.map_err(|error| {
             if error.is_not_found() {
-                ExecutorError::PreviousResponseNotFound { id: prev_id.to_owned() }
+                StorageError::PreviousResponseNotFound { id: prev_id.to_owned() }.into()
             } else {
                 ExecutorError::Storage(error)
             }
